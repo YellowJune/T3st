@@ -50,7 +50,7 @@ def sha256(path: Path) -> str:
 
 def load_qwen(raw_dir: Path, aggregate_path: Path) -> tuple[list[dict], dict]:
     aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
-    require(aggregate["schema"] == "dfc-qwen-continual-aggregate-v4", "Qwen aggregate schema")
+    require(aggregate["schema"] == "dfc-qwen-continual-aggregate-v5", "Qwen aggregate schema")
     require(aggregate["dominance_gate"]["passed"] is True, "Qwen gate did not pass")
     require(aggregate["cells"] == 9, "Qwen aggregate is not a 3x3 matrix")
     expected_hashes = aggregate["source_sha256"]
