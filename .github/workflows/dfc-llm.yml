@@ -1,0 +1,222 @@
+name: DFC Qwen-Instruct choice acquisition
+
+on:
+  push:
+    paths:
+      - "remote/RUN_PROTOCOL_LLM_GPU.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  TOKENIZERS_PARALLELISM: "false"
+  OMP_NUM_THREADS: "4"
+  MKL_NUM_THREADS: "4"
+
+jobs:
+  exactness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile sealed sources
+        run: python -m py_compile remote/llm_choice_continual.py remote/torch_fiber.py
+      - name: Install exactness dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy
+          python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Full-FP32 optimizer, arbitrary payload, and checkpoint gate
+        working-directory: remote
+        run: python -m unittest -v test_torch_fiber.py
+
+  model-and-dataset-manifest:
+    needs: exactness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned manifest stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install huggingface-hub==0.33.4 datasets==4.0.0 pyarrow==20.0.0
+      - name: Resolve immutable model/data revisions and load every split
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from datasets import load_dataset
+          from huggingface_hub import HfApi, model_info
+
+          model_repo = "Qwen/Qwen2.5-0.5B-Instruct"
+          specs = {
+              "ag_news": {
+                  "repo": "fancyzhx/ag_news", "source_ref": "main",
+                  "config": None, "splits": ["train", "test"],
+                  "columns": ["text", "label"],
+              },
+              "emotion": {
+                  "repo": "dair-ai/emotion", "source_ref": "main",
+                  "config": "split", "splits": ["train", "test"],
+                  "columns": ["text", "label"],
+              },
+              "banking77": {
+                  "repo": "mteb/banking77", "source_ref": "main",
+                  "config": None, "splits": ["train", "test"],
+                  "columns": ["text", "label"],
+              },
+              "trec": {
+                  "repo": "CogComp/trec", "source_ref": "refs/convert/parquet",
+                  "config": None, "splits": ["train", "test"],
+                  "columns": ["text", "coarse_label"],
+              },
+          }
+          api = HfApi()
+          manifest = {
+              "schema": "dfc-qwen-choice-manifest-v1",
+              "model": {"repo": model_repo, "revision": model_info(model_repo).sha},
+              "datasets": {},
+          }
+          for name, spec in specs.items():
+              revision = api.dataset_info(
+                  repo_id=spec["repo"], revision=spec["source_ref"]
+              ).sha
+              kwargs = {"revision": revision}
+              if spec["config"] is None:
+                  dataset = load_dataset(spec["repo"], **kwargs)
+              else:
+                  dataset = load_dataset(spec["repo"], spec["config"], **kwargs)
+              assert set(spec["splits"]).issubset(dataset), (name, dataset)
+              for split in spec["splits"]:
+                  assert set(spec["columns"]).issubset(dataset[split].column_names)
+                  assert len(dataset[split]) > 100
+              manifest["datasets"][name] = {
+                  "repo": spec["repo"], "source_ref": spec["source_ref"],
+                  "revision": revision, "config": spec["config"],
+                  "split_rows": {split: len(dataset[split]) for split in spec["splits"]},
+                  "columns": {split: dataset[split].column_names for split in spec["splits"]},
+              }
+          canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+          manifest["manifest_sha256"] = hashlib.sha256(canonical).hexdigest()
+          with open("qwen_choice_manifest.json", "w", encoding="utf-8") as handle:
+              json.dump(manifest, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          print(json.dumps(manifest, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qwen-choice-manifest
+          path: qwen_choice_manifest.json
+          if-no-files-found: error
+      - name: Persist immutable model and dataset manifest
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          mkdir -p remote/run_manifests
+          cp qwen_choice_manifest.json "remote/run_manifests/qwen_choice_${GITHUB_RUN_ID}.json"
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-choice-manifest"
+          git add -f remote/run_manifests/
+          git commit -m "Qwen choice run manifest ${GITHUB_RUN_ID}"
+          git push origin HEAD
+
+  acquisition:
+    needs: [exactness, model-and-dataset-manifest]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: qwen-choice-manifest
+          path: remote/model_manifest
+      - name: Install CPU PyTorch and pinned LLM stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r remote/requirements_llm.txt
+      - name: Execute acquisition-only semantic learning cell
+        working-directory: remote
+        shell: bash
+        run: |
+          revision="$(python -c 'import json; print(json.load(open("model_manifest/qwen_choice_manifest.json"))["model"]["revision"])')"
+          mkdir -p llm_results
+          python llm_choice_continual.py \
+            --method sequential \
+            --seed 1301 \
+            --model Qwen/Qwen2.5-0.5B-Instruct \
+            --revision "$revision" \
+            --dataset-manifest model_manifest/qwen_choice_manifest.json \
+            --rank 16 \
+            --alpha 32 \
+            --keys-per-task 4 \
+            --updates-per-task 1024 \
+            --batch-size 2 \
+            --external-bytes 2048 \
+            --learning-rate 0.0005 \
+            --distill-weight 0.1 \
+            --max-grad-norm 1.0 \
+            --threads 4 \
+            --output llm_results/qwen_choice_seed1301.json
+          sha256sum llm_results/qwen_choice_seed1301.json > llm_results/SHA256SUMS.txt
+          sha256sum llm_choice_continual.py torch_fiber.py >> llm_results/SHA256SUMS.txt
+          python -m pip freeze > llm_results/environment.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qwen-choice-acquisition-${{ github.run_id }}
+          path: remote/llm_results/
+          if-no-files-found: error
+      - name: Persist immutable acquisition result before acceptance
+        working-directory: remote
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-choice-acquisition-1301"
+          git add -f llm_results/
+          git commit -m "Qwen choice acquisition ${GITHUB_RUN_ID}"
+          git push origin HEAD
+      - name: Enforce predeclared learning gate
+        working-directory: remote
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import statistics
+
+          path = "llm_results/qwen_choice_seed1301.json"
+          row = json.load(open(path, encoding="utf-8"))
+          claimed = row["result_sha256"]
+          unhashed = dict(row)
+          unhashed.pop("result_sha256")
+          canonical = json.dumps(unhashed, sort_keys=True, separators=(",", ":")).encode()
+          assert hashlib.sha256(canonical).hexdigest() == claimed
+          assert row["schema"] == "dfc-qwen-choice-v1"
+          assert row["method"] == "sequential" and row["seed"] == 1301
+          assert row["model"] == "Qwen/Qwen2.5-0.5B-Instruct"
+          assert row["requested_revision"] == row["resolved_revision"]
+          assert row["dataset"]["suite"] == "hf_public_choice_v1"
+          assert row["dataset"]["train_examples_per_task"] == 128
+          assert row["dataset"]["evaluation_examples_per_task"] == 128
+          assert row["lora"]["rank"] == 16 and row["lora"]["alpha"] == 32.0
+          assert len(row["lora"]["target_modules"]) == 96
+          assert row["protocol"]["updates_per_task"] == 1024
+          assert row["protocol"]["total_updates"] == 4096
+          assert row["protocol"]["batch_size"] == 2
+          assert row["protocol"]["dense_tokens"] == 393216
+          assert row["resources"]["external_allocated_bytes"] == 2048
+          assert row["checkpoint_gate"]["passed"] is True
+          diagonal = [float(row["accuracy_matrix"][i][i]) for i in range(4)]
+          mean = statistics.fmean(diagonal)
+          assert min(diagonal) >= 0.85, {"diagonal": diagonal, "mean": mean}
+          assert mean >= 0.92, {"diagonal": diagonal, "mean": mean}
+          print("Qwen choice acquisition gate passed", {"diagonal": diagonal, "mean": mean})
+          PY
