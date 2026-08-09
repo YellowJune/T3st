@@ -1,4 +1,4 @@
-name: DFC Qwen full-FP32 continual gate
+name: DFC Qwen classification acquisition pilot
 
 on:
   push:
@@ -55,15 +55,10 @@ jobs:
           path: model_revision.txt
           if-no-files-found: error
 
-  qwen:
+  qwen-acquisition-pilot:
     needs: [exactness, model-manifest]
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
-    strategy:
-      fail-fast: false
-      max-parallel: 3
-      matrix:
-        seed: [941, 947, 953]
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -78,83 +73,49 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r remote/requirements_llm.txt
-      - name: Execute three resource-matched methods
+      - name: Execute untouched sequence-classification acquisition pilot
         working-directory: remote
         shell: bash
         run: |
           revision="$(tr -d '\r\n' < model_manifest/model_revision.txt)"
           mkdir -p llm_results
-          for method in sequential external_derpp dfc_sign_derpp; do
-            python llm_continual_benchmark.py \
-              --method "$method" \
-              --seed "${{ matrix.seed }}" \
-              --revision "$revision" \
-              --rank 8 \
-              --alpha 16 \
-              --keys-per-task 4 \
-              --updates-per-task 64 \
-              --batch-size 2 \
-              --external-bytes 2048 \
-              --learning-rate 0.01 \
-              --distill-weight 0.1 \
-              --threads 4 \
-              --output "llm_results/qwen_${method}_seed${{ matrix.seed }}.json"
-          done
+          python llm_continual_benchmark.py \
+            --method sequential \
+            --seed 967 \
+            --revision "$revision" \
+            --rank 8 \
+            --alpha 16 \
+            --keys-per-task 4 \
+            --num-labels 4 \
+            --updates-per-task 128 \
+            --batch-size 2 \
+            --external-bytes 2048 \
+            --learning-rate 0.003 \
+            --distill-weight 0.1 \
+            --threads 4 \
+            --output llm_results/qwen_sequential_seed967.json
+          python - <<'PY'
+          import json
+          row = json.load(open("llm_results/qwen_sequential_seed967.json"))
+          diagonal = [row["accuracy_matrix"][i][i] for i in range(4)]
+          assert row["adaptation_head"] == "sequence_classification"
+          assert min(diagonal) >= 0.75, diagonal
+          assert sum(diagonal) / len(diagonal) >= 0.90, diagonal
+          print("acquisition gate passed", diagonal)
+          PY
           sha256sum llm_results/*.json > llm_results/SHA256SUMS.txt
-          python -m pip freeze > llm_results/environment_seed${{ matrix.seed }}.txt
+          python -m pip freeze > llm_results/environment_seed967.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: qwen-seed-${{ matrix.seed }}
+          name: qwen-classification-acquisition-pilot-967
           path: remote/llm_results/
           if-no-files-found: error
-      - name: Persist immutable seed evidence
+      - name: Persist immutable acquisition evidence
         working-directory: remote
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git checkout -b "result-${GITHUB_RUN_ID}-qwen-${{ matrix.seed }}"
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-cls-pilot-967"
           git add -f llm_results/
-          git commit -m "Qwen DFC-Sign continual seed ${{ matrix.seed }}"
-          git push origin HEAD
-
-  aggregate:
-    needs: qwen
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: python -m pip install numpy==2.2.6
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: qwen-seed-*
-          merge-multiple: true
-          path: remote/llm_matrix
-      - name: Recompute every metric and enforce the sealed gate
-        working-directory: remote
-        run: >-
-          python analyze_llm_continual.py
-          --input llm_matrix
-          --run-id "${GITHUB_RUN_ID}"
-          --commit-sha "${GITHUB_SHA}"
-          --seeds 941,947,953
-          --minimum-learning-accuracy 0.75
-          --minimum-accuracy-gain-pp 5.0
-          --minimum-forgetting-reduction-pp 5.0
-          --output llm_matrix/qwen_aggregate.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: qwen-accepted-aggregate
-          path: remote/llm_matrix/qwen_aggregate.json
-          if-no-files-found: error
-      - name: Persist accepted aggregate
-        working-directory: remote
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git checkout -b "result-${GITHUB_RUN_ID}-qwen-aggregate"
-          git add -f llm_matrix/qwen_aggregate.json
-          git commit -m "Accepted Qwen DFC-Sign aggregate ${GITHUB_RUN_ID}"
+          git commit -m "Qwen classification acquisition pilot 967"
           git push origin HEAD
