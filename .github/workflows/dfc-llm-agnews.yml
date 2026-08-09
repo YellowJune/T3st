@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         method: [naive, derpp, dfc_sign_derpp]
-        seed: [719]
+        seed: [727]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,6 +51,8 @@ jobs:
             --lora-rank 4 \
             --lora-last-layers 4 \
             --lr 0.01 \
+            --replay-ce-weight 0.25 \
+            --distill-weight 0.025 \
             --output '../results/validation_v21/qwen_agnews_${{ matrix.method }}_seed${{ matrix.seed }}.json'
       - name: Show result
         run: cat results/validation_v21/qwen_agnews_${{ matrix.method }}_seed${{ matrix.seed }}.json
