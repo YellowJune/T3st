@@ -66,7 +66,8 @@ def main() -> None:
     rows, hashes = [], {}
     for path in paths:
         row = json.loads(path.read_text(encoding="utf-8"))
-        require(row["schema"] == "dfc-qwen-continual-v1", f"schema {path.name}")
+        require(row["schema"] == "dfc-qwen-continual-v2", f"schema {path.name}")
+        require(row["adaptation_head"] == "sequence_classification", f"head {path.name}")
         metrics = recompute(row)
         for key, value in metrics.items():
             require(math.isclose(value, row["metrics"][key], rel_tol=0.0, abs_tol=1e-10),
@@ -145,7 +146,7 @@ def main() -> None:
         and gate["final_nll_reduction"] >= 0
     )
     report = {
-        "schema": "dfc-qwen-continual-aggregate-v1",
+        "schema": "dfc-qwen-continual-aggregate-v2",
         "accepted_workflow_run": args.run_id,
         "accepted_commit_sha": args.commit_sha,
         "methods": METHODS,
