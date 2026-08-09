@@ -28,7 +28,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
           python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece
-      - name: Run final-block partial finetuning pilot
+      - name: Run corrected final-block partial finetuning pilot
         env:
           HF_HUB_DISABLE_TELEMETRY: '1'
           HF_HUB_DISABLE_XET: '1'
