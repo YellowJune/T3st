@@ -120,10 +120,10 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           mkdir -p remote/run_manifests
-          cp qwen_choice_manifest.json "remote/run_manifests/qwen_choice_\${GITHUB_RUN_ID}.json"
-          git checkout -b "result-\${GITHUB_RUN_ID}-qwen-choice-manifest"
+          cp qwen_choice_manifest.json "remote/run_manifests/qwen_choice_${GITHUB_RUN_ID}.json"
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-choice-manifest"
           git add -f remote/run_manifests/
-          git commit -m "Qwen choice run manifest \${GITHUB_RUN_ID}"
+          git commit -m "Qwen choice run manifest ${GITHUB_RUN_ID}"
           git push origin HEAD
 
   acquisition:
@@ -172,7 +172,7 @@ jobs:
           python -m pip freeze > llm_results/environment.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: qwen-choice-acquisition-\${{ github.run_id }}
+          name: qwen-choice-acquisition-${{ github.run_id }}
           path: remote/llm_results/
           if-no-files-found: error
       - name: Persist immutable acquisition result before acceptance
@@ -180,9 +180,9 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git checkout -b "result-\${GITHUB_RUN_ID}-qwen-choice-acquisition-1301"
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-choice-acquisition-1301"
           git add -f llm_results/
-          git commit -m "Qwen choice acquisition \${GITHUB_RUN_ID}"
+          git commit -m "Qwen choice acquisition ${GITHUB_RUN_ID}"
           git push origin HEAD
       - name: Enforce predeclared learning gate
         working-directory: remote
