@@ -1,0 +1,1 @@
+71b7e3e08ace4f87368a16ac5e4b1c770ba1c5aec44acd711bee3c88d61aa185  results/cifar100_naive_seed419.json
