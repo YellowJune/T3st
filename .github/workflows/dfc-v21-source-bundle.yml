@@ -1,0 +1,32 @@
+name: DFC v2.1 source bundle
+
+on:
+  push:
+    branches: [dfc-v2.1-validation]
+    paths: ['.github/workflows/dfc-v21-source-bundle.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect validation sources
+        run: |
+          set -euo pipefail
+          mkdir -p bundle/remote bundle/workflows bundle/docs bundle/src
+          cp remote/llm_continual_qwen_partial.py bundle/remote/
+          cp remote/triton_dfc_adamw.py remote/benchmark_triton_dfc.py remote/test_triton_dfc.py bundle/remote/
+          cp .github/workflows/dfc-llm-partial-final.yml .github/workflows/dfc-gpu-validation.yml bundle/workflows/
+          cp docs/VALIDATION_V21.md bundle/docs/ 2>/dev/null || true
+          cp src/analyze_llm_agnews_v21.py bundle/src/ 2>/dev/null || true
+          printf '%s\n' '${{ github.sha }}' > bundle/SOURCE_COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-v21-source-bundle
+          path: bundle
+          if-no-files-found: error
+          retention-days: 30
