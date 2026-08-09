@@ -394,19 +394,20 @@ def encode_rows(tokenizer, spec: dict, task_index: int, rows,
     examples = []
     labels = ", ".join(words)
     for _, text, target in rows:
-        prompt = (
+        prefix = (
             f'Classify {spec["name"]}. Reply with exactly one word from '
-            f'[{labels}]. Text: {text}\nAnswer:'
+            f'[{labels}]. Text: '
         )
+        suffix = "\nAnswer:"
+        prefix_ids = tokenizer.encode(prefix, add_special_tokens=False)
+        text_ids = tokenizer.encode(text, add_special_tokens=False)
+        suffix_ids = tokenizer.encode(suffix, add_special_tokens=False)
+        available = LLMRecordCodec.MAX_LENGTH - 1 - len(prefix_ids) - len(suffix_ids)
+        if available < 4:
+            raise RuntimeError("verbalizer instruction leaves no text budget")
         prompt_ids = tuple(
-            int(value)
-            for value in tokenizer.encode(
-                prompt, add_special_tokens=False, truncation=True,
-                max_length=LLMRecordCodec.MAX_LENGTH - 1,
-            )
+            int(value) for value in prefix_ids + text_ids[:available] + suffix_ids
         )
-        if not prompt_ids:
-            raise RuntimeError("tokenizer emitted an empty prompt")
         ids = prompt_ids + (int(token_ids[target]),)
         examples.append(Example(task_index, ids, len(prompt_ids), int(target)))
     return examples
