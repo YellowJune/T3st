@@ -1,0 +1,52 @@
+name: DFC Qwen partial-finetuning pilot
+
+on:
+  push:
+    branches: [dfc-v2.1-validation]
+    paths: ['.github/workflows/dfc-llm-partial-pilot.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pilot:
+    name: qwen-partial-${{ matrix.method }}-seed1889
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        method: [derpp, dfc_sign_derpp]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece
+      - name: Run final-block partial finetuning pilot
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+        working-directory: remote
+        run: |
+          python llm_continual_qwen_partial.py \
+            --method '${{ matrix.method }}' \
+            --seed 1889 \
+            --steps-per-task 128 \
+            --external-bytes 512 \
+            --train-last-layers 1 \
+            --lr 0.0001 \
+            --replay-ce-weight 0.25 \
+            --distill-weight 0.01 \
+            --output '../results/validation_v21/qwen_partial_${{ matrix.method }}_seed1889.json'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qwen-partial-${{ matrix.method }}-seed1889
+          path: results/validation_v21/qwen_partial_${{ matrix.method }}_seed1889.json
+          if-no-files-found: error
