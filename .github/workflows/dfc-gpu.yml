@@ -83,6 +83,7 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
 
           row = json.loads(Path("gpu_results/triton_dfc_gpu.json").read_text())
