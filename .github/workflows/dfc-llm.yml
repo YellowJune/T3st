@@ -1,0 +1,157 @@
+name: DFC Qwen full-FP32 continual gate
+
+on:
+  push:
+    paths:
+      - "remote/RUN_PROTOCOL_LLM_GPU.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  TOKENIZERS_PARALLELISM: "false"
+  OMP_NUM_THREADS: "4"
+  MKL_NUM_THREADS: "4"
+
+jobs:
+  exactness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exactness dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy
+          python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Full-FP32 optimizer, arbitrary payload, and checkpoint gate
+        working-directory: remote
+        run: python -m unittest -v test_torch_fiber.py
+
+  model-manifest:
+    needs: exactness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install huggingface-hub==0.33.4
+      - name: Resolve immutable Qwen revision
+        run: |
+          python - <<'PY' > model_revision.txt
+          from huggingface_hub import model_info
+          print(model_info("Qwen/Qwen2.5-0.5B").sha)
+          PY
+          test "$(wc -c < model_revision.txt)" -gt 20
+          cat model_revision.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qwen-model-revision
+          path: model_revision.txt
+          if-no-files-found: error
+
+  qwen:
+    needs: [exactness, model-manifest]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        seed: [901, 907, 919]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: qwen-model-revision
+          path: remote/model_manifest
+      - name: Install CPU PyTorch and pinned LLM stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r remote/requirements_llm.txt
+      - name: Execute three resource-matched methods
+        working-directory: remote
+        shell: bash
+        run: |
+          revision="$(tr -d '\r\n' < model_manifest/model_revision.txt)"
+          mkdir -p llm_results
+          for method in sequential external_derpp dfc_sign_derpp; do
+            python llm_continual_benchmark.py \
+              --method "$method" \
+              --seed "${{ matrix.seed }}" \
+              --revision "$revision" \
+              --rank 8 \
+              --alpha 16 \
+              --keys-per-task 8 \
+              --updates-per-task 32 \
+              --batch-size 2 \
+              --external-bytes 2048 \
+              --learning-rate 0.008 \
+              --distill-weight 0.05 \
+              --threads 4 \
+              --output "llm_results/qwen_${method}_seed${{ matrix.seed }}.json"
+          done
+          sha256sum llm_results/*.json > llm_results/SHA256SUMS.txt
+          python -m pip freeze > llm_results/environment_seed${{ matrix.seed }}.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qwen-seed-${{ matrix.seed }}
+          path: remote/llm_results/
+          if-no-files-found: error
+      - name: Persist immutable seed evidence
+        working-directory: remote
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-${{ matrix.seed }}"
+          git add -f llm_results/
+          git commit -m "Qwen DFC-Sign continual seed ${{ matrix.seed }}"
+          git push origin HEAD
+
+  aggregate:
+    needs: qwen
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install numpy==2.2.6
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: qwen-seed-*
+          merge-multiple: true
+          path: remote/llm_matrix
+      - name: Recompute every metric and enforce the sealed gate
+        working-directory: remote
+        run: >-
+          python analyze_llm_continual.py
+          --input llm_matrix
+          --run-id "${GITHUB_RUN_ID}"
+          --commit-sha "${GITHUB_SHA}"
+          --seeds 901,907,919
+          --output llm_matrix/qwen_aggregate.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qwen-accepted-aggregate
+          path: remote/llm_matrix/qwen_aggregate.json
+          if-no-files-found: error
+      - name: Persist accepted aggregate
+        working-directory: remote
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-aggregate"
+          git add -f llm_matrix/qwen_aggregate.json
+          git commit -m "Accepted Qwen DFC-Sign aggregate ${GITHUB_RUN_ID}"
+          git push origin HEAD
