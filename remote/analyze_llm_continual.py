@@ -57,7 +57,7 @@ def main() -> None:
     parser.add_argument("--seeds", default="1129,1151,1171")
     parser.add_argument("--minimum-learning-accuracy", type=float, default=0.90)
     parser.add_argument("--minimum-accuracy-gain-pp", type=float, default=10.0)
-    parser.add_argument("--minimum-forgetting-reduction-pp", type=float, default=5.0)
+    parser.add_argument("--minimum-forgetting-reduction-pp", type=float, default=10.0)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     seeds = [int(value) for value in args.seeds.split(",")]
