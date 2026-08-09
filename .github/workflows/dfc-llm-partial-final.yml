@@ -1,0 +1,127 @@
+name: DFC Qwen partial-finetuning final sealed gate
+
+on:
+  push:
+    branches: [dfc-v2.1-validation]
+    paths: ['.github/workflows/dfc-llm-partial-final.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qwen-partial:
+    name: qwen-partial-final-${{ matrix.method }}-seed${{ matrix.seed }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        method: [derpp, dfc_sign_derpp]
+        seed: [1901, 1931, 1951, 1987, 2017]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned execution stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece
+      - name: Run frozen partial-finetuning protocol
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+        working-directory: remote
+        run: |
+          python llm_continual_qwen_partial.py \
+            --method '${{ matrix.method }}' \
+            --seed '${{ matrix.seed }}' \
+            --model 'Qwen/Qwen2.5-0.5B' \
+            --revision '060db6499f32faf8b98477b0a26969ef7d8b9987' \
+            --steps-per-task 128 \
+            --external-bytes 512 \
+            --train-last-layers 1 \
+            --lr 0.0001 \
+            --replay-ce-weight 0.25 \
+            --distill-weight 0.01 \
+            --output '../results/validation_v21/qwen_partial_${{ matrix.method }}_seed${{ matrix.seed }}.json'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qwen-partial-final-${{ matrix.method }}-seed${{ matrix.seed }}
+          path: results/validation_v21/qwen_partial_${{ matrix.method }}_seed${{ matrix.seed }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  aggregate-gate:
+    name: aggregate-predeclared-qwen-partial-gate
+    needs: qwen-partial
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: qwen-partial-final-*
+          path: rows
+          merge-multiple: true
+      - name: Recompute matrices, audit resources, and apply gate
+        run: |
+          python - <<'PY'
+          import glob, hashlib, json, statistics
+          import numpy as np
+          paths=sorted(glob.glob('rows/*.json'))
+          rows=[json.load(open(p)) for p in paths]
+          methods=('derpp','dfc_sign_derpp')
+          seeds=[1901,1931,1951,1987,2017]
+          by={s:{} for s in seeds}
+          for r in rows:
+              assert r['protocol']=='qwen-causal-partial-v1'
+              s=int(r['seed']); m=r['method']; assert s in by and m in methods and m not in by[s]
+              mat=np.asarray(r['accuracy_matrix'],dtype=float)
+              final=float(np.nanmean(mat[-1])); current=float(np.nanmean(np.diag(mat)))
+              forgetting=float(np.mean([np.nanmax(mat[t:,t])-mat[-1,t] for t in range(mat.shape[0]-1)]))
+              assert abs(final-r['final_average_accuracy'])<1e-12
+              assert abs(current-r['current_task_accuracy'])<1e-12
+              assert abs(forgetting-r['average_forgetting'])<1e-12
+              by[s][m]=r
+          for s in seeds:
+              assert set(by[s])==set(methods), (s,by[s].keys())
+              ref=by[s]['derpp']; dfc=by[s]['dfc_sign_derpp']
+              keys=('protocol','model','resolved_hub_revision','external_bytes','batch_size','steps_per_task','tasks','updates','processed_prompt_slots','seq_len','trainable_parameters','train_last_layers','lr','weight_decay','record_bytes','replay_ce_weight','distill_weight')
+              for k in keys: assert ref[k]==dfc[k], (s,k,ref[k],dfc[k])
+              assert ref['external_bytes']==512 and dfc['external_bytes']==512
+              assert ref['sign_fiber_bytes']==0
+              assert dfc['sign_fiber_bytes']==dfc['trainable_parameters']//8
+              assert ref['record_capacity']==(512-32)//ref['record_bytes']
+              assert dfc['record_capacity']==(512+dfc['sign_fiber_bytes']-32)//dfc['record_bytes']
+              assert ref['records_final']<=ref['record_capacity']
+              assert dfc['records_final']<=dfc['record_capacity']
+          def paired(key): return [float(by[s]['dfc_sign_derpp'][key]-by[s]['derpp'][key]) for s in seeds]
+          final_diff=paired('final_average_accuracy'); forget_diff=paired('average_forgetting'); current_diff=paired('current_task_accuracy')
+          mean=lambda xs: float(statistics.mean(xs))
+          summary={
+            'schema_version':1,'protocol':'qwen-causal-partial-v1','seeds':seeds,'n_seeds':len(seeds),
+            'predeclared_gate':{'final_gain_min':0.10,'forgetting_diff_max':-0.05,'current_diff_min':-0.05},
+            'paired_dfc_minus_derpp':{'final':final_diff,'forgetting':forget_diff,'current':current_diff,'final_mean':mean(final_diff),'forgetting_mean':mean(forget_diff),'current_mean':mean(current_diff)},
+            'derpp':{k:mean([float(by[s]['derpp'][k]) for s in seeds]) for k in ('final_average_accuracy','average_forgetting','current_task_accuracy','record_capacity','wall_seconds')},
+            'dfc_sign_derpp':{k:mean([float(by[s]['dfc_sign_derpp'][k]) for s in seeds]) for k in ('final_average_accuracy','average_forgetting','current_task_accuracy','record_capacity','wall_seconds')},
+            'model':by[seeds[0]]['derpp']['model'],'model_revision':by[seeds[0]]['derpp']['resolved_hub_revision'],
+            'trainable_parameters':by[seeds[0]]['derpp']['trainable_parameters'],'train_last_layers':by[seeds[0]]['derpp']['train_last_layers'],
+            'external_bytes':512,'record_bytes':by[seeds[0]]['derpp']['record_bytes'],'dfc_sign_fiber_bytes':by[seeds[0]]['dfc_sign_derpp']['sign_fiber_bytes'],
+            'source_commit':'${{ github.sha }}'
+          }
+          passed=(summary['paired_dfc_minus_derpp']['final_mean']>=0.10 and summary['paired_dfc_minus_derpp']['forgetting_mean']<=-0.05 and summary['paired_dfc_minus_derpp']['current_mean']>=-0.05)
+          summary['status']='PASS' if passed else 'FAIL'
+          raw=json.dumps(summary,sort_keys=True,separators=(',',':')).encode(); summary['result_sha256']=hashlib.sha256(raw).hexdigest()
+          open('qwen_partial_final_summary.json','w').write(json.dumps(summary,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(summary,indent=2,sort_keys=True))
+          if not passed: raise SystemExit('predeclared Qwen partial gate failed')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qwen-partial-final-summary
+          path: qwen_partial_final_summary.json
+          if-no-files-found: error
+          retention-days: 30
