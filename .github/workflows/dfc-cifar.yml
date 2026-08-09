@@ -1,14 +1,12 @@
-name: DFC CIFAR-100 strict benchmark
+name: DFC CIFAR-100 DER++ pilot
 
 on:
   push:
     paths:
-      - "remote/**"
-      - ".github/workflows/dfc-cifar.yml"
+      - "remote/RUN_PROTOCOL.md"
   pull_request:
     paths:
-      - "remote/**"
-      - ".github/workflows/dfc-cifar.yml"
+      - "remote/RUN_PROTOCOL.md"
   workflow_dispatch:
 
 permissions:
@@ -81,8 +79,8 @@ jobs:
       fail-fast: false
       max-parallel: 9
       matrix:
-        method: [naive, er, dfc_sign_er]
-        seed: [301, 302, 303]
+        method: [naive, derpp, dfc_sign_derpp]
+        seed: [301]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -102,10 +100,13 @@ jobs:
           python vision_benchmark.py
           --method ${{ matrix.method }}
           --seed ${{ matrix.seed }}
-          --updates-per-task 120
+          --updates-per-task 300
           --batch-size 64
-          --width 32
+          --replay-count 32
+          --width 48
           --memory-bytes 32768
+          --insert-count 4
+          --distill-weight 0.3
           --threads 4
           --output results/cifar100_${{ matrix.method }}_seed${{ matrix.seed }}.json
       - name: Hash result
