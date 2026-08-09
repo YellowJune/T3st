@@ -112,9 +112,10 @@ class Example:
     task:int; key:int; text:str; label:int
 
 def make_stream():
-    domains=["alpha","beta","gamma","delta","epsilon"]
-    shifts=[0,1,3,5,7]
-    return [[Example(t,k,f"domain {d}; key {k}",(k+s)%N_LABELS) for k in range(16)] for t,(d,s) in enumerate(zip(domains,shifts))]
+    # Controlled eight-intent class-incremental stream. Each task introduces one
+    # new semantic domain/label, while prompt wording varies within the task.
+    domains=["finance","travel","health","sports","science","music","legal","weather"]
+    return [[Example(t,k,f"intent domain {d}; request item {k}",t) for k in range(16)] for t,d in enumerate(domains)]
 
 def tokenize(tok,text,device):
     e=tok(text,return_tensors="pt",add_special_tokens=True,truncation=True,max_length=SEQ_LEN,padding="max_length")
@@ -135,9 +136,9 @@ def evaluate(model,tok,tasks,device,upto):
     model.train(); return out
 
 def metrics(matrix):
-    final=float(np.nanmean(matrix[-1])); current=float(np.nanmean(np.diag(matrix))); fg=[]
+    final=float(np.nanmean(matrix[-1])); diag=np.diag(matrix); current=float(np.nanmean(diag)); fg=[]
     for t in range(matrix.shape[0]-1):
-        hist=matrix[t:,t]; fg.append(float(np.nanmax(hist[:-1])-hist[-1]))
+        hist=matrix[t:,t]; fg.append(float(np.nanmax(hist)-hist[-1]))
     return {"final_average_accuracy":final,"current_task_accuracy":current,"average_forgetting":float(np.mean(fg))}
 
 def run(args):
@@ -173,7 +174,7 @@ def run(args):
             opt.zero_grad(set_to_none=True); loss.backward(); torch.nn.utils.clip_grad_norm_(trainable,args.grad_clip); opt.step(); updates+=1; losses.append(float(loss.detach()))
             if args.method!="naive": store.insert(record)
         matrix[ti]=np.asarray(evaluate(model,tok,tasks,device,ti))
-    result={"schema_version":2,"protocol":"qwen-seqcls-lora-v1","method":args.method,"seed":args.seed,"model":args.model,"requested_revision":args.revision,"resolved_hub_revision":resolved,"torch":torch.__version__,"trainable_parameters":int(trainable_n),"total_model_parameters":int(sum(p.numel() for p in model.parameters())),"lora_rank":args.lora_rank,"lora_last_layers":args.lora_last_layers,"external_bytes":args.external_bytes,"sign_fiber_bytes":0 if fiber is None else fiber.byte_capacity,"record_bytes":RECORD_BYTES,"record_capacity":0 if args.method=="naive" else store.capacity_records,"records_final":0 if args.method=="naive" else store.count,"records_seen":0 if args.method=="naive" else store.seen,"store_sha256":None if args.method=="naive" else store.digest(),"batch_size":2,"steps_per_task":args.steps_per_task,"tasks":T,"updates":updates,"processed_prompt_slots":2*updates,"seq_len":SEQ_LEN,"num_labels":N_LABELS,"distill_weight":args.distill_weight,"replay_ce_weight":args.replay_ce_weight,"lr":args.lr,"weight_decay":args.weight_decay,"accuracy_matrix":matrix.tolist(),**metrics(matrix),"mean_training_loss":float(np.mean(losses)),"wall_seconds":time.perf_counter()-started}
+    result={"schema_version":2,"protocol":"qwen-classinc-lora-v2","method":args.method,"seed":args.seed,"model":args.model,"requested_revision":args.revision,"resolved_hub_revision":resolved,"torch":torch.__version__,"trainable_parameters":int(trainable_n),"total_model_parameters":int(sum(p.numel() for p in model.parameters())),"lora_rank":args.lora_rank,"lora_last_layers":args.lora_last_layers,"external_bytes":args.external_bytes,"sign_fiber_bytes":0 if fiber is None else fiber.byte_capacity,"record_bytes":RECORD_BYTES,"record_capacity":0 if args.method=="naive" else store.capacity_records,"records_final":0 if args.method=="naive" else store.count,"records_seen":0 if args.method=="naive" else store.seen,"store_sha256":None if args.method=="naive" else store.digest(),"batch_size":2,"steps_per_task":args.steps_per_task,"tasks":T,"updates":updates,"processed_prompt_slots":2*updates,"seq_len":SEQ_LEN,"num_labels":N_LABELS,"distill_weight":args.distill_weight,"replay_ce_weight":args.replay_ce_weight,"lr":args.lr,"weight_decay":args.weight_decay,"accuracy_matrix":matrix.tolist(),**metrics(matrix),"mean_training_loss":float(np.mean(losses)),"wall_seconds":time.perf_counter()-started}
     canonical=json.dumps(result,sort_keys=True,separators=(",",":"),allow_nan=True).encode(); result["result_sha256"]=hashlib.sha256(canonical).hexdigest(); return result
 
 def main():
