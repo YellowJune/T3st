@@ -1,0 +1,271 @@
+{
+  "accuracy_matrix": [
+    [
+      0.859375,
+      null,
+      null,
+      null
+    ],
+    [
+      0.8046875,
+      0.3125,
+      null,
+      null
+    ],
+    [
+      0.5390625,
+      0.3203125,
+      0.734375,
+      null
+    ],
+    [
+      0.4609375,
+      0.2578125,
+      0.4765625,
+      0.640625
+    ]
+  ],
+  "adaptation": {
+    "classifier_parameters": [
+      "classifier.0.weight",
+      "classifier.0.bias",
+      "classifier.1.weight",
+      "classifier.1.bias",
+      "classifier.3.weight",
+      "classifier.3.bias"
+    ],
+    "head_width": 256,
+    "mode": "partial_last_transformer_blocks",
+    "partial_layers": 1,
+    "trainable_parameter_names": [
+      "base_model.layers.23.self_attn.q_proj.weight",
+      "base_model.layers.23.self_attn.q_proj.bias",
+      "base_model.layers.23.self_attn.k_proj.weight",
+      "base_model.layers.23.self_attn.k_proj.bias",
+      "base_model.layers.23.self_attn.v_proj.weight",
+      "base_model.layers.23.self_attn.v_proj.bias",
+      "base_model.layers.23.self_attn.o_proj.weight",
+      "base_model.layers.23.mlp.gate_proj.weight",
+      "base_model.layers.23.mlp.up_proj.weight",
+      "base_model.layers.23.mlp.down_proj.weight",
+      "base_model.layers.23.input_layernorm.weight",
+      "base_model.layers.23.post_attention_layernorm.weight",
+      "base_model.norm.weight",
+      "classifier.0.weight",
+      "classifier.0.bias",
+      "classifier.1.weight",
+      "classifier.1.bias",
+      "classifier.3.weight",
+      "classifier.3.bias"
+    ],
+    "trainable_parameters": 15145732
+  },
+  "adaptation_head": "masked_mean_mlp_sequence_classification",
+  "checkpoint_gate": {
+    "bytes": 181767608,
+    "passed": true,
+    "payload_sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad"
+  },
+  "dataset": {
+    "evaluation_examples_per_task": 128,
+    "label_ids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "mapping_sha256": "3cd558a7be671b3e39cd03a8c75e95078b0163860228032349210600e28449d8",
+    "num_labels": 4,
+    "repositories": [
+      {
+        "class_prompt": "0 world, 1 sports, 2 business, 3 science and technology",
+        "config": null,
+        "eval_subset_sha256": "fe4eebc972c6678ef7b0c4d3424b87f8ea0f5918599d0c8fa1443f690f8b6290",
+        "label_map": {
+          "0": 0,
+          "1": 1,
+          "2": 2,
+          "3": 3
+        },
+        "name": "ag_news",
+        "repo": "fancyzhx/ag_news",
+        "revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+        "source_ref": "main",
+        "train_subset_sha256": "d3daf883a7182913be921317d38e8696604337ba7f03b0c805b4370f62726ddd"
+      },
+      {
+        "class_prompt": "0 sadness, 1 joy, 2 anger, 3 fear",
+        "config": "split",
+        "eval_subset_sha256": "39b2c55c6c52e53929577aaed708358b413e0c44ef262cc0059a1d71b3a6f441",
+        "label_map": {
+          "0": 0,
+          "1": 1,
+          "3": 2,
+          "4": 3
+        },
+        "name": "emotion",
+        "repo": "dair-ai/emotion",
+        "revision": "cab853a1dbdf4c42c2b3ef2173804746df8825fe",
+        "source_ref": "main",
+        "train_subset_sha256": "7b6e31a7eeefad6eca06d454ba412e46626d08778789b84c8b03a0e01c2f517d"
+      },
+      {
+        "class_prompt": "0 activate card, 1 cancel transfer, 2 supported countries, 3 forgotten passcode",
+        "config": null,
+        "eval_subset_sha256": "3981296d0a804cd2d3337862e92d4aa0fded9e8637e39722836005840a2bf455",
+        "label_map": {
+          "0": 0,
+          "8": 1,
+          "24": 2,
+          "44": 3
+        },
+        "name": "banking77",
+        "repo": "mteb/banking77",
+        "revision": "18072d2685ea682290f7b8924d94c62acc19c0b2",
+        "source_ref": "main",
+        "train_subset_sha256": "f5ec1a07d095bf979820ee3c3f27452eba47584003137f6cee61fa82dc6ea426"
+      },
+      {
+        "class_prompt": "0 entity, 1 description, 2 human, 3 numeric answer",
+        "config": null,
+        "eval_subset_sha256": "59c1a2714aa7c8f4ae498346062726cd85586bee2e57fa11bbeed937af937c3f",
+        "label_map": {
+          "1": 0,
+          "2": 1,
+          "3": 2,
+          "5": 3
+        },
+        "name": "trec",
+        "repo": "CogComp/trec",
+        "revision": "65752bf53af25bc935a0dce92fb5b6c930728450",
+        "source_ref": "refs/convert/parquet",
+        "train_subset_sha256": "3888eec96546125d0da714c262cd37f5a4c65e60743a61adbc295ef7d798245b"
+      }
+    ],
+    "suite": "hf_public_four_domain_v1",
+    "train_examples_per_task": 128
+  },
+  "digests": {
+    "adapter_sha256": "bc64b86940a9a586cfe086ba63d11f3ad8705ff90886f16984ed2c737f7e8a50",
+    "final_payload_sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+    "optimizer_source_sha256": "9c623448806900698d801a60e8a1c1cbe47e4ae24f1293bf0d8d58fdef1c7905",
+    "public_dataset_wrapper_sha256": "83cc0b8309a025699d5bd9a7c265ad0e9b5411521885b0c788ce668858cdfb9c",
+    "source_sha256": "2309f30b082eb51d7ada15b160401f3c0ce1f6e85c933bb3a6eeba3295bdfe2e"
+  },
+  "environment": {
+    "device": "cpu",
+    "github_run_id": "31305802075",
+    "github_sha": "5c26cc1bb688b33f378159eaac58fe95c98dcae1",
+    "platform": "Linux-6.17.0-1020-azure-x86_64-with-glibc2.39",
+    "python": "3.12.13",
+    "threads": 4,
+    "torch": "2.13.0+cpu",
+    "transformers": "4.53.2"
+  },
+  "method": "sequential",
+  "metrics": {
+    "average_forgetting": 0.23958333333333334,
+    "average_nll_forgetting": 0.8194849776203531,
+    "current_task_accuracy": 0.640625,
+    "final_average_accuracy": 0.458984375,
+    "final_average_nll": 1.660977768478915,
+    "mean_learning_accuracy": 0.63671875
+  },
+  "model": "Qwen/Qwen2.5-0.5B",
+  "model_class": "QwenContinualClassifier",
+  "nll_matrix": [
+    [
+      0.6114202730059333,
+      null,
+      null,
+      null
+    ],
+    [
+      0.666129307821393,
+      1.9688932970166206,
+      null,
+      null
+    ],
+    [
+      2.4722027517855167,
+      2.064567878842354,
+      0.6589692234992981,
+      null
+    ],
+    [
+      1.7680685194209218,
+      2.907274218276143,
+      1.0223949886858463,
+      0.9461733475327492
+    ]
+  ],
+  "payload_boundaries": [
+    {
+      "count": 0,
+      "seen": 0,
+      "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+      "task": 0
+    },
+    {
+      "count": 0,
+      "seen": 0,
+      "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+      "task": 1
+    },
+    {
+      "count": 0,
+      "seen": 0,
+      "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+      "task": 2
+    },
+    {
+      "count": 0,
+      "seen": 0,
+      "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+      "task": 3
+    }
+  ],
+  "protocol": {
+    "batch_size": 2,
+    "classifier_learning_rate": 0.001,
+    "counted_dense_neural_flops": 583058978242560,
+    "current_per_update": 2,
+    "dense_tokens": 196608,
+    "distill_weight": 0.1,
+    "keys_per_task": 4,
+    "learning_rate": 1e-06,
+    "maximum_length": 48,
+    "replay_per_update": 0,
+    "tasks": 4,
+    "total_updates": 2048,
+    "updates_per_task": 512,
+    "weight_decay": 0.0
+  },
+  "requested_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "resolved_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "resources": {
+    "common_persistent_bytes": 2098228784,
+    "external_allocated_bytes": 2048,
+    "final_record_count": 0,
+    "internal_sign_fiber_bytes": 0,
+    "logical_replay_bytes": 0,
+    "model_physical_bytes": 1977060880,
+    "optimizer_state_physical_bytes": 121165856,
+    "record_bytes": 256,
+    "record_capacity": 0
+  },
+  "result_sha256": "8b418d4c473c1c3ccdaead2e4f978dba82278816fc63db7af9da729df2b0d080",
+  "runtime": {
+    "cpu_seconds_energy_proxy": 6526.836392946,
+    "wall_seconds": 1688.995321998
+  },
+  "schema": "dfc-qwen-public-continual-v1",
+  "seed": 1123,
+  "task_names": [
+    "ag_news",
+    "emotion",
+    "banking77",
+    "trec"
+  ],
+  "tokenizer_class": "Qwen2TokenizerFast"
+}
