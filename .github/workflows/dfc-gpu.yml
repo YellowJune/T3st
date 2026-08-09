@@ -1,6 +1,9 @@
 name: DFC Triton actual-GPU gate
 
 on:
+  push:
+    paths:
+      - "remote/RUN_GPU.md"
   workflow_dispatch:
     inputs:
       runner_label:
@@ -13,7 +16,7 @@ permissions:
 
 jobs:
   fused-gpu:
-    runs-on: ${{ inputs.runner_label }}
+    runs-on: ${{ inputs.runner_label || 'gpu-t4-4-core' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
