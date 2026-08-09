@@ -12,9 +12,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch_fiber import DFCAdamW, TorchSignFiberChannel
-from llm_continual_qwen import (QwenReplayCodec, CombinedByteChannel, ReservoirStore,
-    make_stream, _tokenize_prompt, _target_id, _last_logits, evaluate_matrix,
-    accuracy_metrics, TOPK, RECORD_BYTES, SEQ_LEN)
+from llm_continual_qwen import (
+    QwenReplayCodec, CombinedByteChannel, ReservoirStore, make_stream,
+    tokenize_prompt, target_id, last_logits, evaluate, metrics,
+    TOPK, RECORD_BYTES, SEQ_LEN,
+)
 
 
 def run(args):
@@ -39,18 +41,18 @@ def run(args):
     opt=DFCAdamW(trainable, lr=args.lr, betas=(0.9,0.999), eps=1e-8, weight_decay=args.weight_decay, enable_fiber=args.method=='dfc_sign_derpp')
     fiber=TorchSignFiberChannel(opt) if args.method=='dfc_sign_derpp' else None
     store=ReservoirStore(CombinedByteChannel(args.external_bytes,fiber), np.random.default_rng(args.seed+10003))
-    tasks=make_stream(); label_ids={ex.target_text:_target_id(tok,ex.target_text) for task in tasks for ex in task}
+    tasks=make_stream(); label_ids={ex.target_text:target_id(tok,ex.target_text) for task in tasks for ex in task}
     if len(set(label_ids.values()))!=8: raise RuntimeError(f'target collision {label_ids}')
     matrix=np.full((len(tasks),len(tasks)),np.nan); rng=np.random.default_rng(args.seed+20003); losses=[]; updates=0; started=time.perf_counter()
     for ti,task in enumerate(tasks):
         for _ in range(args.steps_per_task):
-            cur=task[int(rng.integers(0,len(task)))]; ci,cm=_tokenize_prompt(tok,cur.text,device); ct=_target_id(tok,cur.target_text)
+            cur=task[int(rng.integers(0,len(task)))]; ci,cm=tokenize_prompt(tok,cur.text,device); ct=target_id(tok,cur.target_text)
             rep=store.sample() if args.method!='naive' else None
             if rep is None:
                 ri,rm,rt=ci.clone(),cm.clone(),ct; ridx=rlog=None
             else:
                 ri,rm,rt=rep['input_ids'].to(device),rep['attention_mask'].to(device),int(rep['target']); ridx=rep['topk_indices'].to(device); rlog=rep['topk_logits'].to(device)
-            logits=_last_logits(model,torch.stack([ci,ri]),torch.stack([cm,rm])); lc=F.cross_entropy(logits[0:1],torch.tensor([ct],device=device))
+            logits=last_logits(model,torch.stack([ci,ri]),torch.stack([cm,rm])); lc=F.cross_entropy(logits[0:1],torch.tensor([ct],device=device))
             if rep is None or args.method=='naive':
                 loss=lc
             else:
@@ -58,8 +60,8 @@ def run(args):
             vals,idx=torch.topk(logits[0].detach(),k=TOPK); record=QwenReplayCodec.encode(ci,cm,ct,cur.task,idx,vals)
             opt.zero_grad(set_to_none=True); loss.backward(); torch.nn.utils.clip_grad_norm_(trainable,args.grad_clip); opt.step(); updates+=1; losses.append(float(loss.detach()))
             if args.method!='naive': store.insert(record)
-        matrix[ti]=np.asarray(evaluate_matrix(model,tok,tasks,device,ti))
-    result={'schema_version':1,'protocol':'qwen-causal-partial-v1','method':args.method,'seed':args.seed,'model':args.model,'requested_revision':args.revision,'resolved_hub_revision':resolved,'device':str(device),'torch':torch.__version__,'trainable_parameters':trainable_n,'total_model_parameters':int(sum(p.numel() for p in model.parameters())),'train_last_layers':args.train_last_layers,'external_bytes':args.external_bytes,'sign_fiber_bytes':0 if fiber is None else fiber.byte_capacity,'record_bytes':RECORD_BYTES,'record_capacity':0 if args.method=='naive' else store.capacity_records,'records_final':0 if args.method=='naive' else store.count,'records_seen':0 if args.method=='naive' else store.seen,'store_sha256':None if args.method=='naive' else store.digest(),'batch_size':2,'steps_per_task':args.steps_per_task,'tasks':len(tasks),'updates':updates,'processed_prompt_slots':2*updates,'seq_len':SEQ_LEN,'distill_weight':args.distill_weight,'replay_ce_weight':args.replay_ce_weight,'lr':args.lr,'weight_decay':args.weight_decay,'accuracy_matrix':matrix.tolist(),**accuracy_metrics(matrix),'mean_training_loss':float(np.mean(losses)),'wall_seconds':time.perf_counter()-started}
+        matrix[ti]=np.asarray(evaluate(model,tok,tasks,device,ti))
+    result={'schema_version':1,'protocol':'qwen-causal-partial-v1','method':args.method,'seed':args.seed,'model':args.model,'requested_revision':args.revision,'resolved_hub_revision':resolved,'device':str(device),'torch':torch.__version__,'trainable_parameters':trainable_n,'total_model_parameters':int(sum(p.numel() for p in model.parameters())),'train_last_layers':args.train_last_layers,'external_bytes':args.external_bytes,'sign_fiber_bytes':0 if fiber is None else fiber.byte_capacity,'record_bytes':RECORD_BYTES,'record_capacity':0 if args.method=='naive' else store.capacity_records,'records_final':0 if args.method=='naive' else store.count,'records_seen':0 if args.method=='naive' else store.seen,'store_sha256':None if args.method=='naive' else store.digest(),'batch_size':2,'steps_per_task':args.steps_per_task,'tasks':len(tasks),'updates':updates,'processed_prompt_slots':2*updates,'seq_len':SEQ_LEN,'distill_weight':args.distill_weight,'replay_ce_weight':args.replay_ce_weight,'lr':args.lr,'weight_decay':args.weight_decay,'accuracy_matrix':matrix.tolist(),**metrics(matrix),'mean_training_loss':float(np.mean(losses)),'wall_seconds':time.perf_counter()-started}
     raw=json.dumps(result,sort_keys=True,separators=(',',':'),allow_nan=True).encode(); result['result_sha256']=hashlib.sha256(raw).hexdigest(); return result
 
 
