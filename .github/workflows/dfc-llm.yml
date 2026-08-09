@@ -63,7 +63,7 @@ jobs:
       fail-fast: false
       max-parallel: 3
       matrix:
-        seed: [901, 907, 919]
+        seed: [941, 947, 953]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -91,12 +91,12 @@ jobs:
               --revision "$revision" \
               --rank 8 \
               --alpha 16 \
-              --keys-per-task 8 \
-              --updates-per-task 32 \
+              --keys-per-task 4 \
+              --updates-per-task 64 \
               --batch-size 2 \
               --external-bytes 2048 \
-              --learning-rate 0.008 \
-              --distill-weight 0.05 \
+              --learning-rate 0.01 \
+              --distill-weight 0.1 \
               --threads 4 \
               --output "llm_results/qwen_${method}_seed${{ matrix.seed }}.json"
           done
@@ -139,7 +139,10 @@ jobs:
           --input llm_matrix
           --run-id "${GITHUB_RUN_ID}"
           --commit-sha "${GITHUB_SHA}"
-          --seeds 901,907,919
+          --seeds 941,947,953
+          --minimum-learning-accuracy 0.75
+          --minimum-accuracy-gain-pp 5.0
+          --minimum-forgetting-reduction-pp 5.0
           --output llm_matrix/qwen_aggregate.json
       - uses: actions/upload-artifact@v4
         with:
