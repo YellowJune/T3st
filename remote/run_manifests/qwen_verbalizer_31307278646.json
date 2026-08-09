@@ -1,0 +1,94 @@
+{
+  "datasets": {
+    "ag_news": {
+      "columns": {
+        "test": [
+          "text",
+          "label"
+        ],
+        "train": [
+          "text",
+          "label"
+        ]
+      },
+      "config": null,
+      "repo": "fancyzhx/ag_news",
+      "revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+      "source_ref": "main",
+      "split_rows": {
+        "test": 7600,
+        "train": 120000
+      }
+    },
+    "banking77": {
+      "columns": {
+        "test": [
+          "text",
+          "label",
+          "label_text"
+        ],
+        "train": [
+          "text",
+          "label",
+          "label_text"
+        ]
+      },
+      "config": null,
+      "repo": "mteb/banking77",
+      "revision": "18072d2685ea682290f7b8924d94c62acc19c0b2",
+      "source_ref": "main",
+      "split_rows": {
+        "test": 3076,
+        "train": 9993
+      }
+    },
+    "emotion": {
+      "columns": {
+        "test": [
+          "text",
+          "label"
+        ],
+        "train": [
+          "text",
+          "label"
+        ]
+      },
+      "config": "split",
+      "repo": "dair-ai/emotion",
+      "revision": "cab853a1dbdf4c42c2b3ef2173804746df8825fe",
+      "source_ref": "main",
+      "split_rows": {
+        "test": 2000,
+        "train": 16000
+      }
+    },
+    "trec": {
+      "columns": {
+        "test": [
+          "text",
+          "coarse_label",
+          "fine_label"
+        ],
+        "train": [
+          "text",
+          "coarse_label",
+          "fine_label"
+        ]
+      },
+      "config": null,
+      "repo": "CogComp/trec",
+      "revision": "65752bf53af25bc935a0dce92fb5b6c930728450",
+      "source_ref": "refs/convert/parquet",
+      "split_rows": {
+        "test": 500,
+        "train": 5452
+      }
+    }
+  },
+  "manifest_sha256": "e59d95bee522e9fa4c84f1ead228e6bc4d3d15a2827f9dbc99e526204947a940",
+  "model": {
+    "repo": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "schema": "dfc-qwen-verbalizer-manifest-v1"
+}
