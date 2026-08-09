@@ -5,6 +5,10 @@ on:
     paths:
       - "remote/**"
       - ".github/workflows/dfc-cifar.yml"
+  pull_request:
+    paths:
+      - "remote/**"
+      - ".github/workflows/dfc-cifar.yml"
   workflow_dispatch:
 
 permissions:
