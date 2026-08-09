@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Full-FP32 DFC-Sign continual classification on Qwen2.5-0.5B.
 
-The benchmark trains FP32 LoRA parameters and a sequence-classification head
-with ordinary FP32 Adam moments.  A fixed-size token-and-dark-logit record is
+The benchmark partially fine-tunes final Qwen blocks and an FP32 task head with
+ordinary FP32 Adam moments.  A fixed-size token-and-dark-logit record is
 stored either in an actual external byte envelope or in that same envelope
 composed with the exact sign fiber of the Adam second moments.  Batch shape,
 updates, dense tokens, model, trainable parameters, optimizer tensors, and
@@ -368,6 +368,27 @@ def inject_lora(model: torch.nn.Module, rank: int, alpha: float) -> list[str]:
     return targets
 
 
+def enable_partial_finetuning(model: QwenContinualClassifier,
+                              last_layers: int) -> list[str]:
+    """Train only the final Qwen blocks, final norm, and the task head."""
+    for parameter in model.parameters():
+        parameter.requires_grad_(False)
+    layers = model.base_model.layers
+    if not 1 <= last_layers <= len(layers):
+        raise ValueError("invalid number of partial-finetuning layers")
+    for layer in layers[-last_layers:]:
+        for parameter in layer.parameters():
+            parameter.requires_grad_(True)
+    for parameter in model.base_model.norm.parameters():
+        parameter.requires_grad_(True)
+    for parameter in model.classifier.parameters():
+        parameter.requires_grad_(True)
+    names = [name for name, parameter in model.named_parameters() if parameter.requires_grad]
+    if not names:
+        raise RuntimeError("partial-finetuning parameter set is empty")
+    return names
+
+
 def adapter_state(model: torch.nn.Module) -> dict[str, torch.Tensor]:
     return {
         name: parameter.detach().cpu().clone()
@@ -547,12 +568,8 @@ def run(args) -> dict:
     ).to(device)
     model.config.use_cache = False
     model.config.pad_token_id = tokenizer.pad_token_id
-    targets = inject_lora(model, args.rank, args.alpha)
-    classifier_names = []
-    for name, parameter in model.named_parameters():
-        if name.startswith("classifier."):
-            parameter.requires_grad_(True)
-            classifier_names.append(name)
+    partial_names = enable_partial_finetuning(model, args.partial_layers)
+    classifier_names = [name for name in partial_names if name.startswith("classifier.")]
     if not classifier_names:
         raise RuntimeError("sequence-classification head was not found")
     named_trainable = [
@@ -563,12 +580,12 @@ def run(args) -> dict:
     trainable_count = sum(parameter.numel() for parameter in trainable)
     head_parameters = [parameter for name, parameter in named_trainable
                        if name.startswith("classifier.")]
-    lora_parameters = [parameter for name, parameter in named_trainable
-                       if not name.startswith("classifier.")]
-    if not head_parameters or not lora_parameters:
+    partial_parameters = [parameter for name, parameter in named_trainable
+                          if not name.startswith("classifier.")]
+    if not head_parameters or not partial_parameters:
         raise RuntimeError("sealed parameter groups are incomplete")
     optimizer = DFCAdamW([
-        {"params": lora_parameters, "lr": args.learning_rate},
+        {"params": partial_parameters, "lr": args.learning_rate},
         {"params": head_parameters, "lr": args.classifier_learning_rate},
     ], lr=args.learning_rate, betas=(0.9, 0.999),
                          eps=1e-8, weight_decay=args.weight_decay,
@@ -655,7 +672,7 @@ def run(args) -> dict:
     total_model_parameters = sum(parameter.numel() for parameter in model.parameters())
     counted_flops = 6 * total_model_parameters * dense_tokens
     payload = {
-        "schema": "dfc-qwen-continual-v4",
+        "schema": "dfc-qwen-continual-v5",
         "method": args.method,
         "seed": args.seed,
         "model": args.model,
@@ -666,11 +683,11 @@ def run(args) -> dict:
         "adaptation_head": "masked_mean_mlp_sequence_classification",
         "task_names": list(TASK_NAMES),
         "dataset": dataset_metadata,
-        "lora": {
-            "rank": args.rank,
-            "alpha": args.alpha,
+        "adaptation": {
+            "mode": "partial_last_transformer_blocks",
+            "partial_layers": args.partial_layers,
             "head_width": args.head_width,
-            "target_modules": targets,
+            "trainable_parameter_names": partial_names,
             "classifier_parameters": classifier_names,
             "trainable_parameters": trainable_count,
         },
@@ -735,8 +752,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--model", default="Qwen/Qwen2.5-0.5B")
     parser.add_argument("--revision", required=True)
-    parser.add_argument("--rank", type=int, default=8)
-    parser.add_argument("--alpha", type=float, default=16.0)
+    parser.add_argument("--partial-layers", type=int, default=2)
     parser.add_argument("--keys-per-task", type=int, default=4)
     parser.add_argument("--num-labels", type=int, default=4, choices=[4])
     parser.add_argument("--head-width", type=int, default=256)
