@@ -1,0 +1,1 @@
+d5149bf15f9c1575404dd3a4c5d5934a699161cd7d41247f848c05a576059d5f  results/cifar100_dfc_sign_derpp_seed301.json
