@@ -40,14 +40,12 @@ LABEL_WORDS = (
     "stone", "cloud", "light", "dark", "fire", "water", "earth", "wind",
 )
 TRAIN_TEMPLATES = (
-    "Use the {domain} registry. For key {key}, return only its assigned word:",
-    "Registry {domain}; lookup {key}. Reply with the word only:",
-    "In lexicon {domain}, the value stored at {key} is:",
-    "Read {key} under the {domain} codebook. Answer:",
+    "Codebook {domain}. {key} =",
+    "Lookup {domain} {key}:",
 )
 EVAL_TEMPLATES = (
-    "Query the {domain} table for {key}. Output its word:",
-    "What single word does {domain} assign to {key}? Answer:",
+    "Codebook {domain}. {key} =",
+    "Lookup {domain} {key}:",
 )
 
 
@@ -275,7 +273,12 @@ def inject_lora(model: torch.nn.Module, rank: int, alpha: float) -> list[str]:
     for name, module in list(model.named_modules()):
         if not isinstance(module, torch.nn.Linear):
             continue
-        if not (name.endswith("self_attn.q_proj") or name.endswith("self_attn.v_proj")):
+        if not (
+            name.endswith("self_attn.q_proj")
+            or name.endswith("self_attn.v_proj")
+            or name.endswith("self_attn.o_proj")
+            or name.endswith("mlp.down_proj")
+        ):
             continue
         parent_name, child_name = name.rsplit(".", 1)
         parent = model.get_submodule(parent_name)
@@ -632,13 +635,13 @@ def main() -> None:
     parser.add_argument("--revision", required=True)
     parser.add_argument("--rank", type=int, default=8)
     parser.add_argument("--alpha", type=float, default=16.0)
-    parser.add_argument("--keys-per-task", type=int, default=8)
-    parser.add_argument("--updates-per-task", type=int, default=32)
+    parser.add_argument("--keys-per-task", type=int, default=4)
+    parser.add_argument("--updates-per-task", type=int, default=64)
     parser.add_argument("--batch-size", type=int, default=2, choices=[2])
     parser.add_argument("--external-bytes", type=int, default=2048)
-    parser.add_argument("--learning-rate", type=float, default=8e-3)
+    parser.add_argument("--learning-rate", type=float, default=1e-2)
     parser.add_argument("--weight-decay", type=float, default=0.0)
-    parser.add_argument("--distill-weight", type=float, default=0.05)
+    parser.add_argument("--distill-weight", type=float, default=0.1)
     parser.add_argument("--max-grad-norm", type=float, default=1.0)
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--device", default="cpu")
