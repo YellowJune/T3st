@@ -1,4 +1,4 @@
-name: DFC Qwen public-dataset acquisition pilot
+name: DFC Qwen-Instruct verbalizer acquisition pilot
 
 on:
   push:
@@ -45,7 +45,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install huggingface-hub==0.33.4 datasets==4.0.0 pyarrow==20.0.0
-      - name: Resolve immutable revisions and load every split
+      - name: Resolve immutable model/data revisions and load every split
         run: |
           python - <<'PY'
           import hashlib
@@ -53,6 +53,7 @@ jobs:
           from datasets import load_dataset
           from huggingface_hub import HfApi, model_info
 
+          model_repo = "Qwen/Qwen2.5-0.5B-Instruct"
           specs = {
               "ag_news": {
                   "repo": "fancyzhx/ag_news", "source_ref": "main",
@@ -76,10 +77,9 @@ jobs:
               },
           }
           api = HfApi()
-          model_revision = model_info("Qwen/Qwen2.5-0.5B").sha
           manifest = {
-              "schema": "dfc-qwen-public-manifest-v1",
-              "model": {"repo": "Qwen/Qwen2.5-0.5B", "revision": model_revision},
+              "schema": "dfc-qwen-verbalizer-manifest-v1",
+              "model": {"repo": model_repo, "revision": model_info(model_repo).sha},
               "datasets": {},
           }
           for name, spec in specs.items():
@@ -96,37 +96,35 @@ jobs:
                   assert set(spec["columns"]).issubset(dataset[split].column_names)
                   assert len(dataset[split]) > 100
               manifest["datasets"][name] = {
-                  "repo": spec["repo"],
-                  "source_ref": spec["source_ref"],
-                  "revision": revision,
-                  "config": spec["config"],
+                  "repo": spec["repo"], "source_ref": spec["source_ref"],
+                  "revision": revision, "config": spec["config"],
                   "split_rows": {split: len(dataset[split]) for split in spec["splits"]},
                   "columns": {split: dataset[split].column_names for split in spec["splits"]},
               }
           canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
           manifest["manifest_sha256"] = hashlib.sha256(canonical).hexdigest()
-          with open("qwen_public_manifest.json", "w", encoding="utf-8") as handle:
+          with open("qwen_verbalizer_manifest.json", "w", encoding="utf-8") as handle:
               json.dump(manifest, handle, indent=2, sort_keys=True)
               handle.write("\n")
           print(json.dumps(manifest, indent=2, sort_keys=True))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: qwen-public-manifest
-          path: qwen_public_manifest.json
+          name: qwen-verbalizer-manifest
+          path: qwen_verbalizer_manifest.json
           if-no-files-found: error
       - name: Persist immutable model and dataset manifest
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           mkdir -p remote/run_manifests
-          cp qwen_public_manifest.json "remote/run_manifests/qwen_public_${GITHUB_RUN_ID}.json"
-          git checkout -b "result-${GITHUB_RUN_ID}-qwen-public-manifest"
+          cp qwen_verbalizer_manifest.json "remote/run_manifests/qwen_verbalizer_${GITHUB_RUN_ID}.json"
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-verbalizer-manifest"
           git add -f remote/run_manifests/
-          git commit -m "Qwen public-dataset run manifest ${GITHUB_RUN_ID}"
+          git commit -m "Qwen verbalizer run manifest ${GITHUB_RUN_ID}"
           git push origin HEAD
 
-  qwen-public-acquisition:
+  qwen-verbalizer-acquisition:
     needs: [exactness, model-and-dataset-manifest]
     runs-on: ubuntu-24.04
     timeout-minutes: 180
@@ -137,42 +135,41 @@ jobs:
           python-version: "3.12"
       - uses: actions/download-artifact@v4
         with:
-          name: qwen-public-manifest
+          name: qwen-verbalizer-manifest
           path: remote/model_manifest
       - name: Install CPU PyTorch and pinned LLM stack
         run: |
           python -m pip install --upgrade pip
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r remote/requirements_llm.txt
-      - name: Execute untouched public-dataset acquisition pilot
+      - name: Execute untouched Qwen-Instruct verbalizer acquisition
         working-directory: remote
         shell: bash
         run: |
-          revision="$(python -c 'import json; print(json.load(open("model_manifest/qwen_public_manifest.json"))["model"]["revision"])')"
+          revision="$(python -c 'import json; print(json.load(open("model_manifest/qwen_verbalizer_manifest.json"))["model"]["revision"])')"
           mkdir -p llm_results
-          python llm_public_continual.py \
+          python llm_verbalizer_continual.py \
             --method sequential \
-            --seed 1123 \
+            --seed 1201 \
+            --model Qwen/Qwen2.5-0.5B-Instruct \
             --revision "$revision" \
-            --dataset-manifest model_manifest/qwen_public_manifest.json \
-            --partial-layers 1 \
+            --dataset-manifest model_manifest/qwen_verbalizer_manifest.json \
+            --rank 8 \
+            --alpha 16 \
             --keys-per-task 4 \
-            --num-labels 4 \
-            --head-width 256 \
             --updates-per-task 512 \
             --batch-size 2 \
             --external-bytes 2048 \
-            --learning-rate 0.000001 \
-            --classifier-learning-rate 0.001 \
+            --learning-rate 0.0005 \
             --distill-weight 0.1 \
             --max-grad-norm 1.0 \
             --threads 4 \
-            --output llm_results/qwen_sequential_seed1123.json
+            --output llm_results/qwen_sequential_seed1201.json
           sha256sum llm_results/*.json > llm_results/SHA256SUMS.txt
-          python -m pip freeze > llm_results/environment_seed1123.txt
+          python -m pip freeze > llm_results/environment_seed1201.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: qwen-public-acquisition-pilot-1123
+          name: qwen-verbalizer-acquisition-pilot-1201
           path: remote/llm_results/
           if-no-files-found: error
       - name: Persist immutable acquisition evidence
@@ -180,22 +177,21 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git checkout -b "result-${GITHUB_RUN_ID}-qwen-public-pilot-1123"
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-verbalizer-pilot-1201"
           git add -f llm_results/
-          git commit -m "Qwen public-dataset acquisition pilot 1123"
+          git commit -m "Qwen verbalizer acquisition pilot 1201"
           git push origin HEAD
-      - name: Enforce public-dataset acquisition gate after persistence
+      - name: Enforce verbalizer acquisition gate after persistence
         working-directory: remote
         run: |
           python - <<'PY'
           import json
-          row = json.load(open("llm_results/qwen_sequential_seed1123.json"))
+          row = json.load(open("llm_results/qwen_sequential_seed1201.json"))
           diagonal = [row["accuracy_matrix"][i][i] for i in range(4)]
-          assert row["schema"] == "dfc-qwen-public-continual-v1"
-          assert row["dataset"]["suite"] == "hf_public_four_domain_v1"
-          assert row["adaptation"]["mode"] == "partial_last_transformer_blocks"
-          assert row["adaptation"]["partial_layers"] == 1
+          assert row["schema"] == "dfc-qwen-verbalizer-v1"
+          assert row["dataset"]["suite"] == "hf_public_verbalizer_v1"
+          assert row["lora"]["rank"] == 8
           assert min(diagonal) >= 0.80, diagonal
           assert sum(diagonal) / len(diagonal) >= 0.90, diagonal
-          print("public-dataset acquisition gate passed", diagonal)
+          print("Qwen verbalizer acquisition gate passed", diagonal)
           PY
