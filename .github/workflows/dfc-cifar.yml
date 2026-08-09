@@ -1,0 +1,91 @@
+name: DFC CIFAR-100 strict benchmark
+
+on:
+  push:
+    paths:
+      - "remote/**"
+      - ".github/workflows/dfc-cifar.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exactness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install CPU PyTorch
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Exact optimizer and checkpoint tests
+        working-directory: remote
+        run: python -m unittest -v test_torch_fiber.py
+      - name: Record runner sensors and versions
+        run: |
+          mkdir -p results
+          python - <<'PY' > results/environment.txt
+          import glob, os, platform, torch
+          print("platform", platform.platform())
+          print("torch", torch.__version__)
+          print("cuda", torch.cuda.is_available())
+          print("rapl", glob.glob('/sys/class/powercap/**/energy_uj', recursive=True))
+          print("cpu_count", os.cpu_count())
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-environment-and-exactness
+          path: results/environment.txt
+          if-no-files-found: error
+
+  cifar100:
+    needs: exactness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      max-parallel: 9
+      matrix:
+        method: [naive, er, dfc_sign_er]
+        seed: [301, 302, 303]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install CPU PyTorch
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - uses: actions/cache@v4
+        with:
+          path: remote/data
+          key: cifar100-python-v1
+      - name: Run fixed-update CIFAR-100 stream
+        working-directory: remote
+        run: >-
+          python vision_benchmark.py
+          --method ${{ matrix.method }}
+          --seed ${{ matrix.seed }}
+          --updates-per-task 120
+          --batch-size 64
+          --width 32
+          --memory-bytes 32768
+          --threads 4
+          --output results/cifar100_${{ matrix.method }}_seed${{ matrix.seed }}.json
+      - name: Hash result
+        working-directory: remote
+        run: sha256sum results/*.json > results/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cifar100-${{ matrix.method }}-seed${{ matrix.seed }}
+          path: remote/results/
+          if-no-files-found: error
+
