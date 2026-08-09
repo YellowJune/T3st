@@ -1,4 +1,4 @@
-name: DFC Qwen-Instruct verbalizer final 3x3 matrix
+name: DFC Qwen-Instruct choice acquisition
 
 on:
   push:
@@ -23,6 +23,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Compile sealed sources
+        run: python -m py_compile remote/llm_choice_continual.py remote/torch_fiber.py
       - name: Install exactness dependencies
         run: |
           python -m pip install --upgrade pip
@@ -78,7 +80,7 @@ jobs:
           }
           api = HfApi()
           manifest = {
-              "schema": "dfc-qwen-verbalizer-manifest-v1",
+              "schema": "dfc-qwen-choice-manifest-v1",
               "model": {"repo": model_repo, "revision": model_info(model_repo).sha},
               "datasets": {},
           }
@@ -103,38 +105,31 @@ jobs:
               }
           canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
           manifest["manifest_sha256"] = hashlib.sha256(canonical).hexdigest()
-          with open("qwen_verbalizer_manifest.json", "w", encoding="utf-8") as handle:
+          with open("qwen_choice_manifest.json", "w", encoding="utf-8") as handle:
               json.dump(manifest, handle, indent=2, sort_keys=True)
               handle.write("\n")
           print(json.dumps(manifest, indent=2, sort_keys=True))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: qwen-verbalizer-manifest
-          path: qwen_verbalizer_manifest.json
+          name: qwen-choice-manifest
+          path: qwen_choice_manifest.json
           if-no-files-found: error
       - name: Persist immutable model and dataset manifest
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           mkdir -p remote/run_manifests
-          cp qwen_verbalizer_manifest.json "remote/run_manifests/qwen_verbalizer_${GITHUB_RUN_ID}.json"
-          git checkout -b "result-${GITHUB_RUN_ID}-qwen-verbalizer-manifest"
+          cp qwen_choice_manifest.json "remote/run_manifests/qwen_choice_\${GITHUB_RUN_ID}.json"
+          git checkout -b "result-\${GITHUB_RUN_ID}-qwen-choice-manifest"
           git add -f remote/run_manifests/
-          git commit -m "Qwen verbalizer run manifest ${GITHUB_RUN_ID}"
+          git commit -m "Qwen choice run manifest \${GITHUB_RUN_ID}"
           git push origin HEAD
 
-  qwen-matrix:
+  acquisition:
     needs: [exactness, model-and-dataset-manifest]
-    name: qwen-${{ matrix.method }}-${{ matrix.seed }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
-    strategy:
-      fail-fast: false
-      max-parallel: 9
-      matrix:
-        method: [sequential, external_derpp, dfc_sign_derpp]
-        seed: [1213, 1223, 1231]
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -142,120 +137,86 @@ jobs:
           python-version: "3.12"
       - uses: actions/download-artifact@v4
         with:
-          name: qwen-verbalizer-manifest
+          name: qwen-choice-manifest
           path: remote/model_manifest
       - name: Install CPU PyTorch and pinned LLM stack
         run: |
           python -m pip install --upgrade pip
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r remote/requirements_llm.txt
-      - name: Execute sealed cell
+      - name: Execute acquisition-only semantic learning cell
         working-directory: remote
         shell: bash
-        env:
-          CELL_METHOD: ${{ matrix.method }}
-          CELL_SEED: ${{ matrix.seed }}
         run: |
-          revision="$(python -c 'import json; print(json.load(open("model_manifest/qwen_verbalizer_manifest.json"))["model"]["revision"])')"
+          revision="$(python -c 'import json; print(json.load(open("model_manifest/qwen_choice_manifest.json"))["model"]["revision"])')"
           mkdir -p llm_results
-          python llm_verbalizer_continual.py \
-            --method "$CELL_METHOD" \
-            --seed "$CELL_SEED" \
+          python llm_choice_continual.py \
+            --method sequential \
+            --seed 1301 \
             --model Qwen/Qwen2.5-0.5B-Instruct \
             --revision "$revision" \
-            --dataset-manifest model_manifest/qwen_verbalizer_manifest.json \
-            --rank 8 \
-            --alpha 16 \
+            --dataset-manifest model_manifest/qwen_choice_manifest.json \
+            --rank 16 \
+            --alpha 32 \
             --keys-per-task 4 \
-            --updates-per-task 512 \
+            --updates-per-task 1024 \
             --batch-size 2 \
             --external-bytes 2048 \
             --learning-rate 0.0005 \
             --distill-weight 0.1 \
             --max-grad-norm 1.0 \
             --threads 4 \
-            --output "llm_results/qwen_${CELL_METHOD}_seed${CELL_SEED}.json"
-          sha256sum llm_results/*.json > "llm_results/SHA256_${CELL_METHOD}_${CELL_SEED}.txt"
-          python -m pip freeze > "llm_results/environment_${CELL_METHOD}_${CELL_SEED}.txt"
+            --output llm_results/qwen_choice_seed1301.json
+          sha256sum llm_results/qwen_choice_seed1301.json > llm_results/SHA256SUMS.txt
+          sha256sum llm_choice_continual.py torch_fiber.py >> llm_results/SHA256SUMS.txt
+          python -m pip freeze > llm_results/environment.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: qwen-cell-${{ matrix.method }}-${{ matrix.seed }}
+          name: qwen-choice-acquisition-\${{ github.run_id }}
           path: remote/llm_results/
           if-no-files-found: error
-      - name: Persist immutable raw cell
+      - name: Persist immutable acquisition result before acceptance
         working-directory: remote
-        env:
-          CELL_METHOD: ${{ matrix.method }}
-          CELL_SEED: ${{ matrix.seed }}
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git checkout -b "result-${GITHUB_RUN_ID}-qwen-${CELL_METHOD}-${CELL_SEED}"
+          git checkout -b "result-\${GITHUB_RUN_ID}-qwen-choice-acquisition-1301"
           git add -f llm_results/
-          git commit -m "Qwen verbalizer ${CELL_METHOD} seed ${CELL_SEED}"
+          git commit -m "Qwen choice acquisition \${GITHUB_RUN_ID}"
           git push origin HEAD
-
-  aggregate:
-    needs: qwen-matrix
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: qwen-cell-*
-          merge-multiple: true
-          path: remote/llm_matrix
-      - name: Install aggregate dependency
-        run: python -m pip install numpy==2.2.6
-      - name: Recompute metrics and dominance gate
-        working-directory: remote
-        shell: bash
-        run: |
-          test "$(find llm_matrix -maxdepth 1 -name 'qwen_*.json' | wc -l)" -eq 9
-          mkdir -p llm_aggregate
-          set +e
-          python analyze_llm_continual.py \
-            --input llm_matrix \
-            --run-id "$GITHUB_RUN_ID" \
-            --commit-sha "$GITHUB_SHA" \
-            --seeds 1213,1223,1231 \
-            --minimum-learning-accuracy 0.90 \
-            --minimum-accuracy-gain-pp 10.0 \
-            --minimum-forgetting-reduction-pp 10.0 \
-            --output llm_aggregate/qwen_aggregate.json
-          status=$?
-          set -e
-          printf '%s\n' "$status" > llm_aggregate/analyzer_exit_code.txt
-          test -s llm_aggregate/qwen_aggregate.json
-          sha256sum llm_matrix/qwen_*.json llm_aggregate/qwen_aggregate.json > llm_aggregate/SHA256SUMS.txt
-          python -m pip freeze > llm_aggregate/environment.txt
-      - uses: actions/upload-artifact@v4
-        with:
-          name: qwen-verbalizer-aggregate-${{ github.run_id }}
-          path: |
-            remote/llm_aggregate/
-            remote/llm_matrix/qwen_*.json
-          if-no-files-found: error
-      - name: Persist immutable aggregate before acceptance
-        working-directory: remote
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git checkout -b "result-${GITHUB_RUN_ID}-qwen-verbalizer-aggregate"
-          git add -f llm_aggregate/ llm_matrix/qwen_*.json
-          git commit -m "Qwen verbalizer aggregate ${GITHUB_RUN_ID}"
-          git push origin HEAD
-      - name: Enforce predeclared dominance gate
+      - name: Enforce predeclared learning gate
         working-directory: remote
         run: |
           python - <<'PY'
+          import hashlib
           import json
-          row = json.load(open("llm_aggregate/qwen_aggregate.json"))
-          assert row["schema"] == "dfc-qwen-verbalizer-aggregate-v1"
-          assert row["dominance_gate"]["passed"], row["dominance_gate"]
-          print("Qwen verbalizer dominance gate passed", row["dominance_gate"])
+          import statistics
+
+          path = "llm_results/qwen_choice_seed1301.json"
+          row = json.load(open(path, encoding="utf-8"))
+          claimed = row["result_sha256"]
+          unhashed = dict(row)
+          unhashed.pop("result_sha256")
+          canonical = json.dumps(unhashed, sort_keys=True, separators=(",", ":")).encode()
+          assert hashlib.sha256(canonical).hexdigest() == claimed
+          assert row["schema"] == "dfc-qwen-choice-v1"
+          assert row["method"] == "sequential" and row["seed"] == 1301
+          assert row["model"] == "Qwen/Qwen2.5-0.5B-Instruct"
+          assert row["requested_revision"] == row["resolved_revision"]
+          assert row["dataset"]["suite"] == "hf_public_choice_v1"
+          assert row["dataset"]["train_examples_per_task"] == 128
+          assert row["dataset"]["evaluation_examples_per_task"] == 128
+          assert row["lora"]["rank"] == 16 and row["lora"]["alpha"] == 32.0
+          assert len(row["lora"]["target_modules"]) == 96
+          assert row["protocol"]["updates_per_task"] == 1024
+          assert row["protocol"]["total_updates"] == 4096
+          assert row["protocol"]["batch_size"] == 2
+          assert row["protocol"]["dense_tokens"] == 393216
+          assert row["resources"]["external_allocated_bytes"] == 2048
+          assert row["checkpoint_gate"]["passed"] is True
+          diagonal = [float(row["accuracy_matrix"][i][i]) for i in range(4)]
+          mean = statistics.fmean(diagonal)
+          assert min(diagonal) >= 0.85, {"diagonal": diagonal, "mean": mean}
+          assert mean >= 0.92, {"diagonal": diagonal, "mean": mean}
+          print("Qwen choice acquisition gate passed", {"diagonal": diagonal, "mean": mean})
           PY
