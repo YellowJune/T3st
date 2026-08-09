@@ -1,4 +1,4 @@
-name: DFC Qwen classification acquisition pilot
+name: DFC Qwen public-dataset acquisition pilot
 
 on:
   push:
@@ -32,42 +32,102 @@ jobs:
         working-directory: remote
         run: python -m unittest -v test_torch_fiber.py
 
-  model-manifest:
+  model-and-dataset-manifest:
     needs: exactness
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install huggingface-hub==0.33.4
-      - name: Resolve immutable Qwen revision
+      - name: Install pinned manifest stack
         run: |
-          python - <<'PY' > model_revision.txt
-          from huggingface_hub import model_info
-          print(model_info("Qwen/Qwen2.5-0.5B").sha)
+          python -m pip install --upgrade pip
+          python -m pip install huggingface-hub==0.33.4 datasets==4.0.0 pyarrow==20.0.0
+      - name: Resolve immutable revisions and load every split
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from datasets import load_dataset
+          from huggingface_hub import HfApi, model_info
+
+          specs = {
+              "ag_news": {
+                  "repo": "fancyzhx/ag_news", "source_ref": "main",
+                  "config": None, "splits": ["train", "test"],
+                  "columns": ["text", "label"],
+              },
+              "emotion": {
+                  "repo": "dair-ai/emotion", "source_ref": "main",
+                  "config": "split", "splits": ["train", "test"],
+                  "columns": ["text", "label"],
+              },
+              "banking77": {
+                  "repo": "mteb/banking77", "source_ref": "main",
+                  "config": None, "splits": ["train", "test"],
+                  "columns": ["text", "label"],
+              },
+              "trec": {
+                  "repo": "CogComp/trec", "source_ref": "refs/convert/parquet",
+                  "config": None, "splits": ["train", "test"],
+                  "columns": ["text", "coarse_label"],
+              },
+          }
+          api = HfApi()
+          model_revision = model_info("Qwen/Qwen2.5-0.5B").sha
+          manifest = {
+              "schema": "dfc-qwen-public-manifest-v1",
+              "model": {"repo": "Qwen/Qwen2.5-0.5B", "revision": model_revision},
+              "datasets": {},
+          }
+          for name, spec in specs.items():
+              revision = api.dataset_info(
+                  repo_id=spec["repo"], revision=spec["source_ref"]
+              ).sha
+              kwargs = {"revision": revision}
+              if spec["config"] is None:
+                  dataset = load_dataset(spec["repo"], **kwargs)
+              else:
+                  dataset = load_dataset(spec["repo"], spec["config"], **kwargs)
+              assert set(spec["splits"]).issubset(dataset), (name, dataset)
+              for split in spec["splits"]:
+                  assert set(spec["columns"]).issubset(dataset[split].column_names)
+                  assert len(dataset[split]) > 100
+              manifest["datasets"][name] = {
+                  "repo": spec["repo"],
+                  "source_ref": spec["source_ref"],
+                  "revision": revision,
+                  "config": spec["config"],
+                  "split_rows": {split: len(dataset[split]) for split in spec["splits"]},
+                  "columns": {split: dataset[split].column_names for split in spec["splits"]},
+              }
+          canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+          manifest["manifest_sha256"] = hashlib.sha256(canonical).hexdigest()
+          with open("qwen_public_manifest.json", "w", encoding="utf-8") as handle:
+              json.dump(manifest, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          print(json.dumps(manifest, indent=2, sort_keys=True))
           PY
-          test "$(wc -c < model_revision.txt)" -gt 20
-          cat model_revision.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: qwen-model-revision
-          path: model_revision.txt
+          name: qwen-public-manifest
+          path: qwen_public_manifest.json
           if-no-files-found: error
-      - name: Persist run identifier before learning
+      - name: Persist immutable model and dataset manifest
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           mkdir -p remote/run_manifests
-          cp model_revision.txt "remote/run_manifests/qwen_cls_${GITHUB_RUN_ID}.txt"
-          git checkout -b "result-${GITHUB_RUN_ID}-qwen-cls-manifest"
+          cp qwen_public_manifest.json "remote/run_manifests/qwen_public_${GITHUB_RUN_ID}.json"
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-public-manifest"
           git add -f remote/run_manifests/
-          git commit -m "Qwen classification run manifest ${GITHUB_RUN_ID}"
+          git commit -m "Qwen public-dataset run manifest ${GITHUB_RUN_ID}"
           git push origin HEAD
 
-  qwen-acquisition-pilot:
-    needs: [exactness, model-manifest]
+  qwen-public-acquisition:
+    needs: [exactness, model-and-dataset-manifest]
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
@@ -77,41 +137,42 @@ jobs:
           python-version: "3.12"
       - uses: actions/download-artifact@v4
         with:
-          name: qwen-model-revision
+          name: qwen-public-manifest
           path: remote/model_manifest
       - name: Install CPU PyTorch and pinned LLM stack
         run: |
           python -m pip install --upgrade pip
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r remote/requirements_llm.txt
-      - name: Execute untouched sequence-classification acquisition pilot
+      - name: Execute untouched public-dataset acquisition pilot
         working-directory: remote
         shell: bash
         run: |
-          revision="$(tr -d '\r\n' < model_manifest/model_revision.txt)"
+          revision="$(python -c 'import json; print(json.load(open("model_manifest/qwen_public_manifest.json"))["model"]["revision"])')"
           mkdir -p llm_results
-          python llm_continual_benchmark.py \
+          python llm_public_continual.py \
             --method sequential \
-            --seed 1087 \
+            --seed 1123 \
             --revision "$revision" \
-            --partial-layers 2 \
+            --dataset-manifest model_manifest/qwen_public_manifest.json \
+            --partial-layers 1 \
             --keys-per-task 4 \
             --num-labels 4 \
             --head-width 256 \
             --updates-per-task 512 \
             --batch-size 2 \
             --external-bytes 2048 \
-            --learning-rate 0.00002 \
-            --classifier-learning-rate 0.0005 \
+            --learning-rate 0.000001 \
+            --classifier-learning-rate 0.001 \
             --distill-weight 0.1 \
             --max-grad-norm 1.0 \
             --threads 4 \
-            --output llm_results/qwen_sequential_seed1087.json
+            --output llm_results/qwen_sequential_seed1123.json
           sha256sum llm_results/*.json > llm_results/SHA256SUMS.txt
-          python -m pip freeze > llm_results/environment_seed1087.txt
+          python -m pip freeze > llm_results/environment_seed1123.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: qwen-stable-partial-acquisition-pilot-1087
+          name: qwen-public-acquisition-pilot-1123
           path: remote/llm_results/
           if-no-files-found: error
       - name: Persist immutable acquisition evidence
@@ -119,20 +180,22 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git checkout -b "result-${GITHUB_RUN_ID}-qwen-stable-partial-pilot-1087"
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-public-pilot-1123"
           git add -f llm_results/
-          git commit -m "Qwen stable partial-finetuning pilot 1087"
+          git commit -m "Qwen public-dataset acquisition pilot 1123"
           git push origin HEAD
-      - name: Enforce acquisition gate after evidence persistence
+      - name: Enforce public-dataset acquisition gate after persistence
         working-directory: remote
         run: |
           python - <<'PY'
           import json
-          row = json.load(open("llm_results/qwen_sequential_seed1087.json"))
+          row = json.load(open("llm_results/qwen_sequential_seed1123.json"))
           diagonal = [row["accuracy_matrix"][i][i] for i in range(4)]
-          assert row["adaptation_head"] == "masked_mean_mlp_sequence_classification"
+          assert row["schema"] == "dfc-qwen-public-continual-v1"
+          assert row["dataset"]["suite"] == "hf_public_four_domain_v1"
           assert row["adaptation"]["mode"] == "partial_last_transformer_blocks"
-          assert min(diagonal) >= 0.75, diagonal
+          assert row["adaptation"]["partial_layers"] == 1
+          assert min(diagonal) >= 0.80, diagonal
           assert sum(diagonal) / len(diagonal) >= 0.90, diagonal
-          print("acquisition gate passed", diagonal)
+          print("public-dataset acquisition gate passed", diagonal)
           PY
