@@ -1,0 +1,54 @@
+name: DFC Qwen AG News task-permutation pilot
+
+on:
+  push:
+    branches: [dfc-v2.1-validation]
+    paths: ['.github/workflows/dfc-llm-taskperm-pilot.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pilot:
+    name: qwen-taskperm-${{ matrix.method }}-seed1501
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        method: [derpp, dfc_sign_derpp]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'peft>=0.15,<1' 'accelerate>=1.4,<2' 'huggingface_hub>=0.30,<1' 'datasets>=3,<5' sentencepiece
+      - name: Run balanced continual task-adaptation method
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+        working-directory: remote
+        run: |
+          python llm_continual_qwen_agnews_taskperm.py \
+            --method '${{ matrix.method }}' \
+            --seed 1501 \
+            --steps-per-task 96 \
+            --external-bytes 512 \
+            --train-per-class 8 \
+            --eval-per-class 16 \
+            --lora-rank 4 \
+            --lora-last-layers 4 \
+            --lr 0.01 \
+            --distill-weight 0.025 \
+            --output '../results/validation_v21/qwen_taskperm_${{ matrix.method }}_seed1501.json'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qwen-taskperm-${{ matrix.method }}-seed1501
+          path: results/validation_v21/qwen_taskperm_${{ matrix.method }}_seed1501.json
+          if-no-files-found: error
