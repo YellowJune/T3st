@@ -50,7 +50,7 @@ def sha256(path: Path) -> str:
 
 def load_qwen(raw_dir: Path, aggregate_path: Path) -> tuple[list[dict], dict]:
     aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
-    require(aggregate["schema"] == "dfc-qwen-verbalizer-aggregate-v1", "Qwen aggregate schema")
+    require(aggregate["schema"] == "dfc-qwen-choice-aggregate-v1", "Qwen aggregate schema")
     require(aggregate["dominance_gate"]["passed"] is True, "Qwen gate did not pass")
     require(aggregate["cells"] == 9, "Qwen aggregate is not a 3x3 matrix")
     expected_hashes = aggregate["source_sha256"]
@@ -68,9 +68,9 @@ def load_qwen(raw_dir: Path, aggregate_path: Path) -> tuple[list[dict], dict]:
         path = candidates[name]
         require(sha256(path) == expected, f"Qwen raw hash {name}")
         row = json.loads(path.read_text(encoding="utf-8"))
-        require(row["schema"] == "dfc-qwen-verbalizer-v1",
+        require(row["schema"] == "dfc-qwen-choice-v1",
                 f"Qwen raw schema {name}")
-        require(row["dataset"]["suite"] == "hf_public_verbalizer_v1",
+        require(row["dataset"]["suite"] == "hf_public_choice_v1",
                 f"Qwen dataset suite {name}")
         require(row["dataset"]["manifest_sha256"] == aggregate["dataset_manifest_sha256"],
                 f"Qwen manifest binding {name}")
@@ -202,7 +202,7 @@ def write_tex(aggregate: dict, gpu: dict, output: Path) -> None:
     lines = [
         r"\begin{table}[t]",
         r"\centering",
-        r"\caption{Full-FP32 Qwen2.5-0.5B-Instruct next-token verbalizer adaptation on four public datasets under one physical envelope. Values are mean$\pm$SEM over three sealed seeds.}",
+        r"\caption{Full-FP32 Qwen2.5-0.5B-Instruct next-token multiple-choice adaptation on four public datasets under one physical envelope. Values are mean$\pm$SEM over three sealed seeds.}",
         r"\label{tab:qwen_fullfp32}",
         r"\begin{tabular}{lrrr}",
         r"\toprule",
