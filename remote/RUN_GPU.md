@@ -7,3 +7,8 @@ CUDA PyTorch, and Triton all prove physical GPU execution. The primary point is
 and 200 CUDA-event repetitions. DFC-Sign must preserve an arbitrary payload and
 match the payload-free Triton AdamW trajectory bitwise before the measured
 median paired overhead may be tested against the sealed 5.0% ceiling.
+
+Launch revision 2 persists the measured JSON, full `nvidia-smi -q`, environment
+lock, exit code, and SHA256 manifest to an immutable result branch before the
+predeclared acceptance assertion. The numerical protocol and ceiling are
+unchanged.
