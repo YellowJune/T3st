@@ -18,8 +18,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p bundle/remote bundle/workflows bundle/docs bundle/src
-          cp remote/llm_continual_qwen_partial.py bundle/remote/
-          cp remote/triton_dfc_adamw.py remote/benchmark_triton_dfc.py remote/test_triton_dfc.py bundle/remote/
+          cp remote/llm_continual_qwen.py remote/llm_continual_qwen_partial.py bundle/remote/
+          cp remote/torch_fiber.py remote/triton_dfc_adamw.py remote/benchmark_triton_dfc.py remote/test_triton_dfc.py bundle/remote/
           cp .github/workflows/dfc-llm-partial-final.yml .github/workflows/dfc-gpu-validation.yml bundle/workflows/
           cp docs/VALIDATION_V21.md bundle/docs/ 2>/dev/null || true
           cp src/analyze_llm_agnews_v21.py bundle/src/ 2>/dev/null || true
