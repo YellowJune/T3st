@@ -1,0 +1,233 @@
+{
+  "accuracy_matrix": [
+    [
+      0.125,
+      null,
+      null,
+      null
+    ],
+    [
+      0.125,
+      0.125,
+      null,
+      null
+    ],
+    [
+      0.125,
+      0.125,
+      0.0625,
+      null
+    ],
+    [
+      0.125,
+      0.125,
+      0.125,
+      0.125
+    ]
+  ],
+  "checkpoint_gate": {
+    "bytes": 6575039,
+    "passed": true,
+    "payload_sha256": "b9b670642be65e87398365a677353ce7a0f0c1f7d5c2d11f0681a8a0225ab4d8"
+  },
+  "dataset": {
+    "evaluation_examples_per_task": 16,
+    "label_token_ids": [
+      2518,
+      6303,
+      6176,
+      3691,
+      4158,
+      6623,
+      14961,
+      67605
+    ],
+    "label_words": [
+      "red",
+      "blue",
+      "green",
+      "black",
+      "white",
+      "gold",
+      "silver",
+      "amber"
+    ],
+    "mapping_sha256": "090937ed520d44cf6a85573971c7435dc11aa382fb78c0778a3a0f31db159687",
+    "train_examples_per_task": 32
+  },
+  "digests": {
+    "adapter_sha256": "4597468a6574016ded7139064d053b13a79b7c4739359846ad0380d024950461",
+    "final_payload_sha256": "ce511f135c943d8bdb12efbc30ad0ca5cfcf0391a9fce3b88a9a3e0c9b9fe890",
+    "optimizer_source_sha256": "9c623448806900698d801a60e8a1c1cbe47e4ae24f1293bf0d8d58fdef1c7905",
+    "source_sha256": "940ee7e134daa021cfe2887d34c90745c3866e8ed0f33d067ae09cb2d4e8ba74"
+  },
+  "environment": {
+    "device": "cpu",
+    "github_run_id": "31298252568",
+    "github_sha": "88adf61912022be061b7dd924e4594e510299895",
+    "platform": "Linux-6.17.0-1020-azure-x86_64-with-glibc2.39",
+    "python": "3.12.13",
+    "threads": 4,
+    "torch": "2.13.0+cpu",
+    "transformers": "4.53.2"
+  },
+  "lora": {
+    "alpha": 16.0,
+    "rank": 8,
+    "target_modules": [
+      "model.layers.0.self_attn.q_proj",
+      "model.layers.0.self_attn.v_proj",
+      "model.layers.1.self_attn.q_proj",
+      "model.layers.1.self_attn.v_proj",
+      "model.layers.2.self_attn.q_proj",
+      "model.layers.2.self_attn.v_proj",
+      "model.layers.3.self_attn.q_proj",
+      "model.layers.3.self_attn.v_proj",
+      "model.layers.4.self_attn.q_proj",
+      "model.layers.4.self_attn.v_proj",
+      "model.layers.5.self_attn.q_proj",
+      "model.layers.5.self_attn.v_proj",
+      "model.layers.6.self_attn.q_proj",
+      "model.layers.6.self_attn.v_proj",
+      "model.layers.7.self_attn.q_proj",
+      "model.layers.7.self_attn.v_proj",
+      "model.layers.8.self_attn.q_proj",
+      "model.layers.8.self_attn.v_proj",
+      "model.layers.9.self_attn.q_proj",
+      "model.layers.9.self_attn.v_proj",
+      "model.layers.10.self_attn.q_proj",
+      "model.layers.10.self_attn.v_proj",
+      "model.layers.11.self_attn.q_proj",
+      "model.layers.11.self_attn.v_proj",
+      "model.layers.12.self_attn.q_proj",
+      "model.layers.12.self_attn.v_proj",
+      "model.layers.13.self_attn.q_proj",
+      "model.layers.13.self_attn.v_proj",
+      "model.layers.14.self_attn.q_proj",
+      "model.layers.14.self_attn.v_proj",
+      "model.layers.15.self_attn.q_proj",
+      "model.layers.15.self_attn.v_proj",
+      "model.layers.16.self_attn.q_proj",
+      "model.layers.16.self_attn.v_proj",
+      "model.layers.17.self_attn.q_proj",
+      "model.layers.17.self_attn.v_proj",
+      "model.layers.18.self_attn.q_proj",
+      "model.layers.18.self_attn.v_proj",
+      "model.layers.19.self_attn.q_proj",
+      "model.layers.19.self_attn.v_proj",
+      "model.layers.20.self_attn.q_proj",
+      "model.layers.20.self_attn.v_proj",
+      "model.layers.21.self_attn.q_proj",
+      "model.layers.21.self_attn.v_proj",
+      "model.layers.22.self_attn.q_proj",
+      "model.layers.22.self_attn.v_proj",
+      "model.layers.23.self_attn.q_proj",
+      "model.layers.23.self_attn.v_proj"
+    ],
+    "trainable_parameters": 540672
+  },
+  "method": "external_derpp",
+  "metrics": {
+    "average_forgetting": 0.0,
+    "average_nll_forgetting": 0.280728538831075,
+    "current_task_accuracy": 0.125,
+    "final_average_accuracy": 0.125,
+    "final_average_nll": 3.3547086119651794,
+    "mean_learning_accuracy": 0.109375
+  },
+  "model": "Qwen/Qwen2.5-0.5B",
+  "nll_matrix": [
+    [
+      3.651464343070984,
+      null,
+      null,
+      null
+    ],
+    [
+      2.9521113634109497,
+      2.9690297842025757,
+      null,
+      null
+    ],
+    [
+      6.122503757476807,
+      5.348384857177734,
+      4.648561477661133,
+      null
+    ],
+    [
+      3.4698468446731567,
+      3.2934799194335938,
+      3.3679667711257935,
+      3.287540912628174
+    ]
+  ],
+  "payload_boundaries": [
+    {
+      "count": 7,
+      "seen": 32,
+      "sha256": "42256dac24f232636d86ad51fe154c811b0267c67b8613e8003cc015f2de3b9e",
+      "task": 0
+    },
+    {
+      "count": 7,
+      "seen": 64,
+      "sha256": "b9b670642be65e87398365a677353ce7a0f0c1f7d5c2d11f0681a8a0225ab4d8",
+      "task": 1
+    },
+    {
+      "count": 7,
+      "seen": 96,
+      "sha256": "c989a8f71465f9405d7f6962e28fb99b9fa35eda0b7b3bf8979f118b667b8066",
+      "task": 2
+    },
+    {
+      "count": 7,
+      "seen": 128,
+      "sha256": "ce511f135c943d8bdb12efbc30ad0ca5cfcf0391a9fce3b88a9a3e0c9b9fe890",
+      "task": 3
+    }
+  ],
+  "protocol": {
+    "batch_size": 2,
+    "counted_dense_neural_flops": 36463910584320,
+    "current_per_update": 1,
+    "dense_tokens": 12288,
+    "distill_weight": 0.05,
+    "keys_per_task": 8,
+    "learning_rate": 0.008,
+    "maximum_length": 48,
+    "replay_per_update": 1,
+    "tasks": 4,
+    "total_updates": 128,
+    "updates_per_task": 32,
+    "weight_decay": 0.0
+  },
+  "requested_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "resolved_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "resources": {
+    "common_persistent_bytes": 1982621184,
+    "external_allocated_bytes": 2048,
+    "final_record_count": 7,
+    "internal_sign_fiber_bytes": 0,
+    "logical_replay_bytes": 2048,
+    "model_physical_bytes": 1978293760,
+    "optimizer_state_physical_bytes": 4325376,
+    "record_bytes": 256,
+    "record_capacity": 7
+  },
+  "result_sha256": "06d6967b69c9dd9bb31e499d2589c5b788e63958c80e5858bc76ced4fb51fd24",
+  "runtime": {
+    "cpu_seconds_energy_proxy": 935.652251967,
+    "wall_seconds": 259.54891046700004
+  },
+  "schema": "dfc-qwen-continual-v1",
+  "seed": 907,
+  "task_names": [
+    "orion",
+    "cedar",
+    "marble",
+    "saffron"
+  ],
+  "tokenizer_class": "Qwen2TokenizerFast"
+}
