@@ -20,7 +20,7 @@ from torch_fiber import DFCAdamW, TorchSignFiberChannel
 SEQ_LEN = 24
 N_LABELS = 4
 HEADER_BYTES = 32
-RECORD_BYTES = 116
+RECORD_BYTES = 120
 RECORD_MAGIC = b"QAG1"
 STORE_MAGIC = b"DFCAGN1\0"
 
