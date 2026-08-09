@@ -1,0 +1,380 @@
+{
+  "accuracy_matrix": [
+    [
+      0.7890625,
+      null,
+      null,
+      null
+    ],
+    [
+      0.78125,
+      0.7734375,
+      null,
+      null
+    ],
+    [
+      0.671875,
+      0.78125,
+      0.984375,
+      null
+    ],
+    [
+      0.59375,
+      0.375,
+      0.8359375,
+      0.78125
+    ]
+  ],
+  "checkpoint_gate": {
+    "bytes": 24059583,
+    "passed": true,
+    "payload_sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad"
+  },
+  "dataset": {
+    "evaluation_examples_per_task": 128,
+    "label_ids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "manifest_sha256": "e59d95bee522e9fa4c84f1ead228e6bc4d3d15a2827f9dbc99e526204947a940",
+    "mapping_sha256": "4155ef2781b5b437eede3f3c7bf66c5664cf2729887b7acb7104b8d25e253b83",
+    "num_labels": 4,
+    "repositories": [
+      {
+        "config": null,
+        "eval_subset_sha256": "fe4eebc972c6678ef7b0c4d3424b87f8ea0f5918599d0c8fa1443f690f8b6290",
+        "label_map": {
+          "0": 0,
+          "1": 1,
+          "2": 2,
+          "3": 3
+        },
+        "name": "ag_news",
+        "repo": "fancyzhx/ag_news",
+        "revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+        "source_ref": "main",
+        "train_subset_sha256": "d3daf883a7182913be921317d38e8696604337ba7f03b0c805b4370f62726ddd",
+        "verbalizer_token_ids": [
+          1879,
+          9833,
+          2562,
+          8038
+        ],
+        "verbalizers": [
+          "world",
+          "sports",
+          "business",
+          "science"
+        ]
+      },
+      {
+        "config": "split",
+        "eval_subset_sha256": "39b2c55c6c52e53929577aaed708358b413e0c44ef262cc0059a1d71b3a6f441",
+        "label_map": {
+          "0": 0,
+          "1": 1,
+          "3": 2,
+          "4": 3
+        },
+        "name": "emotion",
+        "repo": "dair-ai/emotion",
+        "revision": "cab853a1dbdf4c42c2b3ef2173804746df8825fe",
+        "source_ref": "main",
+        "train_subset_sha256": "7b6e31a7eeefad6eca06d454ba412e46626d08778789b84c8b03a0e01c2f517d",
+        "verbalizer_token_ids": [
+          12421,
+          15888,
+          19234,
+          8679
+        ],
+        "verbalizers": [
+          "sad",
+          "joy",
+          "anger",
+          "fear"
+        ]
+      },
+      {
+        "config": null,
+        "eval_subset_sha256": "3981296d0a804cd2d3337862e92d4aa0fded9e8637e39722836005840a2bf455",
+        "label_map": {
+          "0": 0,
+          "8": 1,
+          "24": 2,
+          "44": 3
+        },
+        "name": "banking77",
+        "repo": "mteb/banking77",
+        "revision": "18072d2685ea682290f7b8924d94c62acc19c0b2",
+        "source_ref": "main",
+        "train_subset_sha256": "f5ec1a07d095bf979820ee3c3f27452eba47584003137f6cee61fa82dc6ea426",
+        "verbalizer_token_ids": [
+          20276,
+          9121,
+          3146,
+          3552
+        ],
+        "verbalizers": [
+          "activate",
+          "cancel",
+          "country",
+          "password"
+        ]
+      },
+      {
+        "config": null,
+        "eval_subset_sha256": "59c1a2714aa7c8f4ae498346062726cd85586bee2e57fa11bbeed937af937c3f",
+        "label_map": {
+          "1": 0,
+          "2": 1,
+          "3": 2,
+          "5": 3
+        },
+        "name": "trec",
+        "repo": "CogComp/trec",
+        "revision": "65752bf53af25bc935a0dce92fb5b6c930728450",
+        "source_ref": "refs/convert/parquet",
+        "train_subset_sha256": "3888eec96546125d0da714c262cd37f5a4c65e60743a61adbc295ef7d798245b",
+        "verbalizer_token_ids": [
+          5387,
+          4008,
+          3738,
+          1372
+        ],
+        "verbalizers": [
+          "entity",
+          "description",
+          "human",
+          "number"
+        ]
+      }
+    ],
+    "suite": "hf_public_verbalizer_v1",
+    "train_examples_per_task": 128
+  },
+  "digests": {
+    "adapter_sha256": "38dedf337a979ea68eba3b3c1091e50e6900d1008cb7b5ac560adc664e7a47db",
+    "final_payload_sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+    "optimizer_source_sha256": "9c623448806900698d801a60e8a1c1cbe47e4ae24f1293bf0d8d58fdef1c7905",
+    "source_sha256": "face4ca4a210db8ce453f6cb6f9de17c6bd2d5f32af690661a42fe0e98c51ceb"
+  },
+  "environment": {
+    "device": "cpu",
+    "github_run_id": "31307278646",
+    "github_sha": "22fefc2cbc6d61ca8ba3723677b5de7380b3ce00",
+    "platform": "Linux-6.17.0-1020-azure-x86_64-with-glibc2.39",
+    "python": "3.12.13",
+    "threads": 4,
+    "torch": "2.13.0+cpu",
+    "transformers": "4.53.2"
+  },
+  "lora": {
+    "alpha": 16.0,
+    "rank": 8,
+    "target_modules": [
+      "model.layers.0.self_attn.q_proj",
+      "model.layers.0.self_attn.v_proj",
+      "model.layers.0.self_attn.o_proj",
+      "model.layers.0.mlp.down_proj",
+      "model.layers.1.self_attn.q_proj",
+      "model.layers.1.self_attn.v_proj",
+      "model.layers.1.self_attn.o_proj",
+      "model.layers.1.mlp.down_proj",
+      "model.layers.2.self_attn.q_proj",
+      "model.layers.2.self_attn.v_proj",
+      "model.layers.2.self_attn.o_proj",
+      "model.layers.2.mlp.down_proj",
+      "model.layers.3.self_attn.q_proj",
+      "model.layers.3.self_attn.v_proj",
+      "model.layers.3.self_attn.o_proj",
+      "model.layers.3.mlp.down_proj",
+      "model.layers.4.self_attn.q_proj",
+      "model.layers.4.self_attn.v_proj",
+      "model.layers.4.self_attn.o_proj",
+      "model.layers.4.mlp.down_proj",
+      "model.layers.5.self_attn.q_proj",
+      "model.layers.5.self_attn.v_proj",
+      "model.layers.5.self_attn.o_proj",
+      "model.layers.5.mlp.down_proj",
+      "model.layers.6.self_attn.q_proj",
+      "model.layers.6.self_attn.v_proj",
+      "model.layers.6.self_attn.o_proj",
+      "model.layers.6.mlp.down_proj",
+      "model.layers.7.self_attn.q_proj",
+      "model.layers.7.self_attn.v_proj",
+      "model.layers.7.self_attn.o_proj",
+      "model.layers.7.mlp.down_proj",
+      "model.layers.8.self_attn.q_proj",
+      "model.layers.8.self_attn.v_proj",
+      "model.layers.8.self_attn.o_proj",
+      "model.layers.8.mlp.down_proj",
+      "model.layers.9.self_attn.q_proj",
+      "model.layers.9.self_attn.v_proj",
+      "model.layers.9.self_attn.o_proj",
+      "model.layers.9.mlp.down_proj",
+      "model.layers.10.self_attn.q_proj",
+      "model.layers.10.self_attn.v_proj",
+      "model.layers.10.self_attn.o_proj",
+      "model.layers.10.mlp.down_proj",
+      "model.layers.11.self_attn.q_proj",
+      "model.layers.11.self_attn.v_proj",
+      "model.layers.11.self_attn.o_proj",
+      "model.layers.11.mlp.down_proj",
+      "model.layers.12.self_attn.q_proj",
+      "model.layers.12.self_attn.v_proj",
+      "model.layers.12.self_attn.o_proj",
+      "model.layers.12.mlp.down_proj",
+      "model.layers.13.self_attn.q_proj",
+      "model.layers.13.self_attn.v_proj",
+      "model.layers.13.self_attn.o_proj",
+      "model.layers.13.mlp.down_proj",
+      "model.layers.14.self_attn.q_proj",
+      "model.layers.14.self_attn.v_proj",
+      "model.layers.14.self_attn.o_proj",
+      "model.layers.14.mlp.down_proj",
+      "model.layers.15.self_attn.q_proj",
+      "model.layers.15.self_attn.v_proj",
+      "model.layers.15.self_attn.o_proj",
+      "model.layers.15.mlp.down_proj",
+      "model.layers.16.self_attn.q_proj",
+      "model.layers.16.self_attn.v_proj",
+      "model.layers.16.self_attn.o_proj",
+      "model.layers.16.mlp.down_proj",
+      "model.layers.17.self_attn.q_proj",
+      "model.layers.17.self_attn.v_proj",
+      "model.layers.17.self_attn.o_proj",
+      "model.layers.17.mlp.down_proj",
+      "model.layers.18.self_attn.q_proj",
+      "model.layers.18.self_attn.v_proj",
+      "model.layers.18.self_attn.o_proj",
+      "model.layers.18.mlp.down_proj",
+      "model.layers.19.self_attn.q_proj",
+      "model.layers.19.self_attn.v_proj",
+      "model.layers.19.self_attn.o_proj",
+      "model.layers.19.mlp.down_proj",
+      "model.layers.20.self_attn.q_proj",
+      "model.layers.20.self_attn.v_proj",
+      "model.layers.20.self_attn.o_proj",
+      "model.layers.20.mlp.down_proj",
+      "model.layers.21.self_attn.q_proj",
+      "model.layers.21.self_attn.v_proj",
+      "model.layers.21.self_attn.o_proj",
+      "model.layers.21.mlp.down_proj",
+      "model.layers.22.self_attn.q_proj",
+      "model.layers.22.self_attn.v_proj",
+      "model.layers.22.self_attn.o_proj",
+      "model.layers.22.mlp.down_proj",
+      "model.layers.23.self_attn.q_proj",
+      "model.layers.23.self_attn.v_proj",
+      "model.layers.23.self_attn.o_proj",
+      "model.layers.23.mlp.down_proj"
+    ],
+    "trainable_parameters": 1990656
+  },
+  "method": "sequential",
+  "metrics": {
+    "average_forgetting": 0.25,
+    "average_nll_forgetting": 2.1455193153277223,
+    "current_task_accuracy": 0.78125,
+    "final_average_accuracy": 0.646484375,
+    "final_average_nll": 2.795976337582985,
+    "mean_learning_accuracy": 0.83203125
+  },
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "nll_matrix": [
+    [
+      2.2371724298609657,
+      null,
+      null,
+      null
+    ],
+    [
+      1.1354182122740895,
+      2.3222200292718753,
+      null,
+      null
+    ],
+    [
+      1.5378775233402848,
+      1.8169705550557183,
+      0.040638117544291474,
+      null
+    ],
+    [
+      1.4654589258134365,
+      7.506807270634454,
+      0.4573186344093756,
+      1.7543205194746747
+    ]
+  ],
+  "payload_boundaries": [
+    {
+      "count": 0,
+      "seen": 0,
+      "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+      "task": 0
+    },
+    {
+      "count": 0,
+      "seen": 0,
+      "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+      "task": 1
+    },
+    {
+      "count": 0,
+      "seen": 0,
+      "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+      "task": 2
+    },
+    {
+      "count": 0,
+      "seen": 0,
+      "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+      "task": 3
+    }
+  ],
+  "protocol": {
+    "batch_size": 2,
+    "counted_dense_neural_flops": 585133040074752,
+    "current_per_update": 2,
+    "dense_tokens": 196608,
+    "distill_weight": 0.1,
+    "keys_per_task": 4,
+    "learning_rate": 0.0005,
+    "maximum_length": 48,
+    "replay_per_update": 0,
+    "tasks": 4,
+    "total_updates": 2048,
+    "updates_per_task": 512,
+    "weight_decay": 0.0
+  },
+  "requested_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "resolved_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "resources": {
+    "common_persistent_bytes": 2000020992,
+    "external_allocated_bytes": 2048,
+    "final_record_count": 0,
+    "internal_sign_fiber_bytes": 0,
+    "logical_replay_bytes": 0,
+    "model_physical_bytes": 1984093696,
+    "optimizer_state_physical_bytes": 15925248,
+    "record_bytes": 256,
+    "record_capacity": 0
+  },
+  "result_sha256": "0e574b340c0f757d152a702111cf05e992cbf6833ca3b66132df235d9be59a81",
+  "runtime": {
+    "cpu_seconds_energy_proxy": 13861.99554471,
+    "wall_seconds": 3787.810748679
+  },
+  "schema": "dfc-qwen-verbalizer-v1",
+  "seed": 1201,
+  "task_names": [
+    "ag_news",
+    "emotion",
+    "banking77",
+    "trec"
+  ],
+  "tokenizer_class": "Qwen2TokenizerFast"
+}
