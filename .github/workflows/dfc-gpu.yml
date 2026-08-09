@@ -89,7 +89,7 @@ jobs:
           assert row["schema"] == "dfc-triton-gpu-v1"
           assert row["device"]["gpu_name"]
           assert row["device"]["cuda_runtime"]
-          assert row["device"]["github_run_id"] == "${GITHUB_RUN_ID}"
+          assert row["device"]["github_run_id"] == os.environ["GITHUB_RUN_ID"]
           for result in row["results"]:
               exactness = result["exactness"]
               assert exactness["updates"] == 8
