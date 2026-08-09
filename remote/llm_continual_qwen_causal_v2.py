@@ -15,7 +15,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch_fiber import DFCAdamW,TorchSignFiberChannel
-from llm_continual_qwen import QwenReplayCodec,CombinedByteChannel,ReservoirStore,make_stream,_tokenize_prompt,_target_id,_last_logits,evaluate_matrix,accuracy_metrics,RECORD_BYTES,SEQ_LEN,TOPK
+from llm_continual_qwen import QwenReplayCodec,CombinedByteChannel,ReservoirStore,make_stream,tokenize_prompt,target_id,last_logits,evaluate,metrics,RECORD_BYTES,SEQ_LEN,TOPK
 CURRENT_SLOTS=3
 BATCH_SIZE=4
 
@@ -33,20 +33,20 @@ def run(args):
  tasks=make_stream(); T=len(tasks); matrix=np.full((T,T),np.nan,dtype=np.float64); rng=np.random.default_rng(args.seed+20003); updates=0; losses=[]; started=time.perf_counter()
  for task_index,task in enumerate(tasks):
   for _ in range(args.steps_per_task):
-   current=[task[int(rng.integers(0,len(task)))] for _ in range(CURRENT_SLOTS)]; current_tokens=[_tokenize_prompt(tokenizer,ex.text,device) for ex in current]; replay=store.sample()
+   current=[task[int(rng.integers(0,len(task)))] for _ in range(CURRENT_SLOTS)]; current_tokens=[tokenize_prompt(tokenizer,ex.text,device) for ex in current]; replay=store.sample()
    if replay is None:
-    extra=task[int(rng.integers(0,len(task)))]; extra_ids,extra_mask=_tokenize_prompt(tokenizer,extra.text,device); batch_ids=[x[0] for x in current_tokens]+[extra_ids]; batch_masks=[x[1] for x in current_tokens]+[extra_mask]; targets=[_target_id(tokenizer,ex.target_text) for ex in current]+[_target_id(tokenizer,extra.target_text)]; replay_topk_indices=None; replay_topk_logits=None
+    extra=task[int(rng.integers(0,len(task)))]; extra_ids,extra_mask=tokenize_prompt(tokenizer,extra.text,device); batch_ids=[x[0] for x in current_tokens]+[extra_ids]; batch_masks=[x[1] for x in current_tokens]+[extra_mask]; targets=[target_id(tokenizer,ex.target_text) for ex in current]+[target_id(tokenizer,extra.target_text)]; replay_topk_indices=None; replay_topk_logits=None
    else:
-    batch_ids=[x[0] for x in current_tokens]+[replay["input_ids"].to(device)]; batch_masks=[x[1] for x in current_tokens]+[replay["attention_mask"].to(device)]; targets=[_target_id(tokenizer,ex.target_text) for ex in current]+[int(replay["target"])]; replay_topk_indices=replay["topk_indices"].to(device); replay_topk_logits=replay["topk_logits"].to(device)
-   logits=_last_logits(model,torch.stack(batch_ids),torch.stack(batch_masks)); loss=F.cross_entropy(logits,torch.tensor(targets,device=device))
+    batch_ids=[x[0] for x in current_tokens]+[replay["input_ids"].to(device)]; batch_masks=[x[1] for x in current_tokens]+[replay["attention_mask"].to(device)]; targets=[target_id(tokenizer,ex.target_text) for ex in current]+[int(replay["target"])]; replay_topk_indices=replay["topk_indices"].to(device); replay_topk_logits=replay["topk_logits"].to(device)
+   logits=last_logits(model,torch.stack(batch_ids),torch.stack(batch_masks)); loss=F.cross_entropy(logits,torch.tensor(targets,device=device))
    if replay_topk_indices is not None: loss=loss+args.distill_weight*F.mse_loss(logits[-1,replay_topk_indices].float(),replay_topk_logits.float())
    records=[]
    for i,ex in enumerate(current):
-    vals,idx=torch.topk(logits[i].detach(),k=TOPK); records.append(QwenReplayCodec.encode(current_tokens[i][0],current_tokens[i][1],_target_id(tokenizer,ex.target_text),ex.task,idx,vals))
+    vals,idx=torch.topk(logits[i].detach(),k=TOPK); records.append(QwenReplayCodec.encode(current_tokens[i][0],current_tokens[i][1],target_id(tokenizer,ex.target_text),ex.task,idx,vals))
    optimizer.zero_grad(set_to_none=True); loss.backward(); torch.nn.utils.clip_grad_norm_(trainable,args.grad_clip); optimizer.step(); updates+=1; losses.append(float(loss.detach()))
    for record in records: store.insert(record)
-  matrix[task_index]=np.asarray(evaluate_matrix(model,tokenizer,tasks,device,task_index))
- result={"schema_version":1,"protocol":"qwen-causal-domainmap-lora-v2","method":args.method,"seed":args.seed,"model":args.model,"requested_model_revision":args.revision,"resolved_model_revision":resolved_revision,"torch":torch.__version__,"trainable_parameters":int(trainable_n),"total_model_parameters":int(sum(p.numel() for p in model.parameters())),"lora_rank":args.lora_rank,"lora_last_layers":args.lora_last_layers,"external_bytes":args.external_bytes,"sign_fiber_bytes":0 if fiber is None else fiber.byte_capacity,"record_bytes":RECORD_BYTES,"record_capacity":store.capacity_records,"records_final":store.count,"records_seen":store.seen,"store_sha256":store.digest(),"batch_size":BATCH_SIZE,"current_slots_per_update":CURRENT_SLOTS,"replay_slots_per_update":1,"replay_fraction":0.25,"steps_per_task":args.steps_per_task,"tasks":T,"updates":updates,"processed_prompt_slots":BATCH_SIZE*updates,"seq_len":SEQ_LEN,"topk":TOPK,"distill_weight":args.distill_weight,"lr":args.lr,"weight_decay":args.weight_decay,"accuracy_matrix":matrix.tolist(),**accuracy_metrics(matrix),"mean_training_loss":float(np.mean(losses)),"wall_seconds":time.perf_counter()-started}
+  matrix[task_index]=np.asarray(evaluate(model,tokenizer,tasks,device,task_index))
+ result={"schema_version":1,"protocol":"qwen-causal-domainmap-lora-v2","method":args.method,"seed":args.seed,"model":args.model,"requested_model_revision":args.revision,"resolved_model_revision":resolved_revision,"torch":torch.__version__,"trainable_parameters":int(trainable_n),"total_model_parameters":int(sum(p.numel() for p in model.parameters())),"lora_rank":args.lora_rank,"lora_last_layers":args.lora_last_layers,"external_bytes":args.external_bytes,"sign_fiber_bytes":0 if fiber is None else fiber.byte_capacity,"record_bytes":RECORD_BYTES,"record_capacity":store.capacity_records,"records_final":store.count,"records_seen":store.seen,"store_sha256":store.digest(),"batch_size":BATCH_SIZE,"current_slots_per_update":CURRENT_SLOTS,"replay_slots_per_update":1,"replay_fraction":0.25,"steps_per_task":args.steps_per_task,"tasks":T,"updates":updates,"processed_prompt_slots":BATCH_SIZE*updates,"seq_len":SEQ_LEN,"topk":TOPK,"distill_weight":args.distill_weight,"lr":args.lr,"weight_decay":args.weight_decay,"accuracy_matrix":matrix.tolist(),**metrics(matrix),"mean_training_loss":float(np.mean(losses)),"wall_seconds":time.perf_counter()-started}
  canonical=json.dumps(result,sort_keys=True,separators=(",",":"),allow_nan=True).encode(); result["result_sha256"]=hashlib.sha256(canonical).hexdigest(); return result
 
 def main():
