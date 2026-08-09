@@ -1,0 +1,1 @@
+c42e24b9e4066daa9265f97a903ef8132ff5e2aef1969a984317f595b57d3056  results/cifar100_derpp_seed461.json
