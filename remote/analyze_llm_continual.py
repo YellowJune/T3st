@@ -54,7 +54,10 @@ def main() -> None:
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--commit-sha", required=True)
-    parser.add_argument("--seeds", default="901,907,919")
+    parser.add_argument("--seeds", default="941,947,953")
+    parser.add_argument("--minimum-learning-accuracy", type=float, default=0.75)
+    parser.add_argument("--minimum-accuracy-gain-pp", type=float, default=5.0)
+    parser.add_argument("--minimum-forgetting-reduction-pp", type=float, default=5.0)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     seeds = [int(value) for value in args.seeds.split(",")]
@@ -129,10 +132,15 @@ def main() -> None:
         "final_nll_reduction": (
             external["final_average_nll"]["mean"] - dfc["final_average_nll"]["mean"]
         ),
+        "dfc_mean_learning_accuracy": dfc["mean_learning_accuracy"]["mean"],
+        "minimum_learning_accuracy": args.minimum_learning_accuracy,
+        "minimum_accuracy_gain_pp": args.minimum_accuracy_gain_pp,
+        "minimum_forgetting_reduction_pp": args.minimum_forgetting_reduction_pp,
     }
     gate["passed"] = bool(
-        gate["final_accuracy_gain_pp"] >= 0
-        and gate["forgetting_reduction_pp"] >= 0
+        gate["dfc_mean_learning_accuracy"] >= args.minimum_learning_accuracy
+        and gate["final_accuracy_gain_pp"] >= args.minimum_accuracy_gain_pp
+        and gate["forgetting_reduction_pp"] >= args.minimum_forgetting_reduction_pp
         and gate["current_task_delta_pp"] >= -1.0
         and gate["final_nll_reduction"] >= 0
     )
