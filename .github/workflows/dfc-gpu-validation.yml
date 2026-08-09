@@ -1,0 +1,56 @@
+name: DFC Triton GPU validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner_label:
+        description: 'CUDA-capable self-hosted or configured larger-runner label'
+        required: true
+        default: 'self-hosted'
+      sizes:
+        description: 'Comma-separated coordinate counts'
+        required: true
+        default: '1048576,4194304,16777216,33554432'
+
+permissions:
+  contents: read
+
+jobs:
+  gpu-benchmark:
+    runs-on: ${{ inputs.runner_label }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dfc-v2.1-validation
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify CUDA and install Triton
+        run: |
+          nvidia-smi
+          python -m pip install --upgrade pip
+          python -m pip install torch triton
+          python - <<'PY'
+          import torch
+          assert torch.cuda.is_available(), 'CUDA unavailable'
+          print(torch.__version__, torch.version.cuda, torch.cuda.get_device_name(0))
+          PY
+      - name: Exactness gates
+        working-directory: remote
+        run: python -m unittest -v test_triton_dfc.py
+      - name: Benchmark matched fused AdamW versus DFC-SIGN
+        working-directory: remote
+        run: |
+          python benchmark_triton_dfc.py \
+            --sizes '${{ inputs.sizes }}' \
+            --repeats 9 \
+            --output '../results/validation_v21/triton_gpu.json'
+      - name: Show result
+        run: cat results/validation_v21/triton_gpu.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-triton-gpu-validation
+          path: results/validation_v21/triton_gpu.json
+          if-no-files-found: error
+          retention-days: 30
