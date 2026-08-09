@@ -40,17 +40,24 @@ jobs:
       - name: Bitwise fused-kernel noninterference tests
         working-directory: remote
         run: python -m unittest -v test_triton_dfc.py
-      - name: Interleaved fused benchmark and <=5 percent gate
+      - name: Interleaved fused benchmark
         working-directory: remote
-        run: >-
-          python benchmark_triton_dfc.py
-          --sizes 1048576,8388608,33554432
-          --primary-size 8388608
-          --warmup 40
-          --repetitions 200
-          --rounds 9
-          --maximum-primary-overhead-percent 5.0
-          --output gpu_results/triton_dfc_gpu.json
+        shell: bash
+        run: |
+          mkdir -p gpu_results
+          set +e
+          python benchmark_triton_dfc.py \
+            --sizes 1048576,8388608,33554432 \
+            --primary-size 8388608 \
+            --warmup 40 \
+            --repetitions 200 \
+            --rounds 9 \
+            --maximum-primary-overhead-percent 5.0 \
+            --output gpu_results/triton_dfc_gpu.json
+          status=$?
+          set -e
+          printf '%s\n' "$status" > gpu_results/benchmark_exit_code.txt
+          test -s gpu_results/triton_dfc_gpu.json
       - name: Bind environment and hashes
         working-directory: remote
         run: |
@@ -62,7 +69,7 @@ jobs:
           name: triton-dfc-actual-gpu-${{ github.run_id }}
           path: remote/gpu_results/
           if-no-files-found: error
-      - name: Persist immutable GPU evidence
+      - name: Persist immutable GPU evidence before acceptance
         working-directory: remote
         run: |
           git config user.name github-actions[bot]
@@ -71,3 +78,27 @@ jobs:
           git add -f gpu_results/
           git commit -m "Triton DFC-Sign actual GPU benchmark ${GITHUB_RUN_ID}"
           git push origin HEAD
+      - name: Enforce exactness and predeclared 5 percent gate
+        working-directory: remote
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          row = json.loads(Path("gpu_results/triton_dfc_gpu.json").read_text())
+          assert row["schema"] == "dfc-triton-gpu-v1"
+          assert row["device"]["gpu_name"]
+          assert row["device"]["cuda_runtime"]
+          assert row["device"]["github_run_id"] == "${GITHUB_RUN_ID}"
+          for result in row["results"]:
+              exactness = result["exactness"]
+              assert exactness["updates"] == 8
+              assert exactness["parameter_bitwise_equal"]
+              assert exactness["first_moment_bitwise_equal"]
+              assert exactness["second_magnitude_bitwise_equal"]
+              assert exactness["payload_bitwise_preserved"]
+          gate = row["acceptance_gate"]
+          assert gate["maximum_overhead_percent"] == 5.0
+          assert gate["passed"], gate
+          print("actual-GPU acceptance gate passed", gate)
+          PY
