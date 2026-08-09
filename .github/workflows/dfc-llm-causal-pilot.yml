@@ -28,7 +28,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
           python -m pip install 'transformers>=4.51,<5' 'peft>=0.15,<1' 'accelerate>=1.4,<2' 'huggingface_hub>=0.30,<1' sentencepiece
-      - name: Run causal continual adaptation
+      - name: Run causal continual adaptation after helper-import gate
         env:
           HF_HUB_DISABLE_TELEMETRY: '1'
           HF_HUB_DISABLE_XET: '1'
