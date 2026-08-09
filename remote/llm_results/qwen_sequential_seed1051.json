@@ -1,0 +1,216 @@
+{
+  "accuracy_matrix": [
+    [
+      0.5,
+      null,
+      null,
+      null
+    ],
+    [
+      0.25,
+      1.0,
+      null,
+      null
+    ],
+    [
+      0.125,
+      0.375,
+      0.75,
+      null
+    ],
+    [
+      0.125,
+      0.875,
+      0.5,
+      0.375
+    ]
+  ],
+  "adaptation": {
+    "classifier_parameters": [
+      "classifier.0.weight",
+      "classifier.0.bias",
+      "classifier.1.weight",
+      "classifier.1.bias",
+      "classifier.3.weight",
+      "classifier.3.bias"
+    ],
+    "head_width": 256,
+    "mode": "partial_last_transformer_blocks",
+    "partial_layers": 2,
+    "trainable_parameter_names": [
+      "base_model.layers.22.self_attn.q_proj.weight",
+      "base_model.layers.22.self_attn.q_proj.bias",
+      "base_model.layers.22.self_attn.k_proj.weight",
+      "base_model.layers.22.self_attn.k_proj.bias",
+      "base_model.layers.22.self_attn.v_proj.weight",
+      "base_model.layers.22.self_attn.v_proj.bias",
+      "base_model.layers.22.self_attn.o_proj.weight",
+      "base_model.layers.22.mlp.gate_proj.weight",
+      "base_model.layers.22.mlp.up_proj.weight",
+      "base_model.layers.22.mlp.down_proj.weight",
+      "base_model.layers.22.input_layernorm.weight",
+      "base_model.layers.22.post_attention_layernorm.weight",
+      "base_model.layers.23.self_attn.q_proj.weight",
+      "base_model.layers.23.self_attn.q_proj.bias",
+      "base_model.layers.23.self_attn.k_proj.weight",
+      "base_model.layers.23.self_attn.k_proj.bias",
+      "base_model.layers.23.self_attn.v_proj.weight",
+      "base_model.layers.23.self_attn.v_proj.bias",
+      "base_model.layers.23.self_attn.o_proj.weight",
+      "base_model.layers.23.mlp.gate_proj.weight",
+      "base_model.layers.23.mlp.up_proj.weight",
+      "base_model.layers.23.mlp.down_proj.weight",
+      "base_model.layers.23.input_layernorm.weight",
+      "base_model.layers.23.post_attention_layernorm.weight",
+      "base_model.norm.weight",
+      "classifier.0.weight",
+      "classifier.0.bias",
+      "classifier.1.weight",
+      "classifier.1.bias",
+      "classifier.3.weight",
+      "classifier.3.bias"
+    ],
+    "trainable_parameters": 30058116
+  },
+  "adaptation_head": "masked_mean_mlp_sequence_classification",
+  "checkpoint_gate": {
+    "bytes": 360726924,
+    "passed": true,
+    "payload_sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad"
+  },
+  "dataset": {
+    "evaluation_examples_per_task": 8,
+    "label_ids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "mapping_sha256": "88f886e54d229370afc5ad9250e8cc15ced13d6da5cfdc490963870e1b5b32b2",
+    "num_labels": 4,
+    "suite": "controlled_semantic_continual_classification_v1",
+    "train_examples_per_task": 8
+  },
+  "digests": {
+    "adapter_sha256": "fcd558f27231c0db319e24b5e63eda3e4e232afcd6c4f4960e214ce927dec33f",
+    "final_payload_sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+    "optimizer_source_sha256": "9c623448806900698d801a60e8a1c1cbe47e4ae24f1293bf0d8d58fdef1c7905",
+    "source_sha256": "2309f30b082eb51d7ada15b160401f3c0ce1f6e85c933bb3a6eeba3295bdfe2e"
+  },
+  "environment": {
+    "device": "cpu",
+    "github_run_id": "31303768550",
+    "github_sha": "c61087f3da3cd341008053d21d58a0f24d64734f",
+    "platform": "Linux-6.17.0-1020-azure-x86_64-with-glibc2.39",
+    "python": "3.12.13",
+    "threads": 4,
+    "torch": "2.13.0+cpu",
+    "transformers": "4.53.2"
+  },
+  "method": "sequential",
+  "metrics": {
+    "average_forgetting": 0.25,
+    "average_nll_forgetting": 4.003750944820543,
+    "current_task_accuracy": 0.375,
+    "final_average_accuracy": 0.46875,
+    "final_average_nll": 6.578722752630711,
+    "mean_learning_accuracy": 0.65625
+  },
+  "model": "Qwen/Qwen2.5-0.5B",
+  "model_class": "QwenContinualClassifier",
+  "nll_matrix": [
+    [
+      4.372731685638428,
+      null,
+      null,
+      null
+    ],
+    [
+      11.241103172302246,
+      0.00037641916424036026,
+      null,
+      null
+    ],
+    [
+      37.887977600097656,
+      14.284830093383789,
+      3.8507189750671387,
+      null
+    ],
+    [
+      15.87360668182373,
+      0.4225062429904938,
+      3.938966989517212,
+      6.079811096191406
+    ]
+  ],
+  "payload_boundaries": [
+    {
+      "count": 0,
+      "seen": 0,
+      "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+      "task": 0
+    },
+    {
+      "count": 0,
+      "seen": 0,
+      "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+      "task": 1
+    },
+    {
+      "count": 0,
+      "seen": 0,
+      "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+      "task": 2
+    },
+    {
+      "count": 0,
+      "seen": 0,
+      "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+      "task": 3
+    }
+  ],
+  "protocol": {
+    "batch_size": 2,
+    "classifier_learning_rate": 0.003,
+    "counted_dense_neural_flops": 145764744560640,
+    "current_per_update": 2,
+    "dense_tokens": 49152,
+    "distill_weight": 0.1,
+    "keys_per_task": 4,
+    "learning_rate": 0.0001,
+    "maximum_length": 48,
+    "replay_per_update": 0,
+    "tasks": 4,
+    "total_updates": 512,
+    "updates_per_task": 128,
+    "weight_decay": 0.0
+  },
+  "requested_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "resolved_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "resources": {
+    "common_persistent_bytes": 2217527856,
+    "external_allocated_bytes": 2048,
+    "final_record_count": 0,
+    "internal_sign_fiber_bytes": 0,
+    "logical_replay_bytes": 0,
+    "model_physical_bytes": 1977060880,
+    "optimizer_state_physical_bytes": 240464928,
+    "record_bytes": 256,
+    "record_capacity": 0
+  },
+  "result_sha256": "bd8fad14d2eab889b7436b9d1604f868207033020253142ce8538b7bdd62a330",
+  "runtime": {
+    "cpu_seconds_energy_proxy": 1396.128994693,
+    "wall_seconds": 353.401376816
+  },
+  "schema": "dfc-qwen-continual-v5",
+  "seed": 1051,
+  "task_names": [
+    "sentiment",
+    "topic",
+    "speech_act",
+    "temporality"
+  ],
+  "tokenizer_class": "Qwen2TokenizerFast"
+}
