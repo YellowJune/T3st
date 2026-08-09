@@ -1,10 +1,7 @@
-name: DFC CIFAR-100 DER++ pilot
+name: DFC CIFAR-100 Low16 final
 
 on:
   push:
-    paths:
-      - "remote/RUN_PROTOCOL.md"
-  pull_request:
     paths:
       - "remote/RUN_PROTOCOL.md"
   workflow_dispatch:
@@ -79,8 +76,8 @@ jobs:
       fail-fast: false
       max-parallel: 9
       matrix:
-        method: [naive, derpp, dfc_sign_derpp]
-        seed: [301]
+        method: [naive, derpp, dfc_low16_derpp]
+        seed: [401, 409, 419]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
