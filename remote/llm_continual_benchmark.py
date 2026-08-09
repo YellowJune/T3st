@@ -34,16 +34,73 @@ from torch_fiber import DFCAdamW, TorchSignFiberChannel
 
 
 METHODS = ("sequential", "external_derpp", "dfc_sign_derpp")
-TASK_NAMES = ("orion", "cedar", "marble", "saffron")
+TASK_NAMES = ("sentiment", "topic", "speech_act", "temporality")
 TRAIN_TEMPLATES = (
-    "In the {domain} taxonomy, classify the concept {key}.",
-    "Domain {domain}; semantic item {key}; category:",
+    "Task {domain}. Classify this text: {text}",
+    "For the {domain} classifier, label: {text}",
 )
 EVAL_TEMPLATES = (
-    "In the {domain} taxonomy, classify the concept {key}.",
-    "Domain {domain}; semantic item {key}; category:",
+    "Task {domain}. Classify this text: {text}",
+    "For the {domain} classifier, label: {text}",
 )
-KEY_NAMES = ("apple", "river", "mountain", "violin")
+SEMANTIC_TASKS = {
+    "sentiment": {
+        "train": (
+            ("The meal was wonderful and the staff were delightful.", "I loved the product and would gladly recommend it."),
+            ("The device failed immediately and the support was awful.", "I regret buying this disappointing and broken item."),
+            ("The package arrived on Tuesday in a cardboard box.", "The report contains four sections and two appendices."),
+            ("The acting was brilliant but the story was painfully dull.", "The room was beautiful, although the service was very slow."),
+        ),
+        "eval": (
+            ("A fantastic experience that exceeded every expectation.", "The concert was joyful and exceptionally well performed."),
+            ("A miserable experience with rude service and poor quality.", "The update is frustrating, unreliable, and badly designed."),
+            ("The meeting begins at noon in the main conference room.", "The manual describes the available settings and controls."),
+            ("The camera is excellent, yet its battery life is terrible.", "I liked the location but disliked nearly everything else."),
+        ),
+    },
+    "topic": {
+        "train": (
+            ("Researchers measured a new particle in the laboratory.", "The telescope recorded light from a distant galaxy."),
+            ("The striker scored twice and the team won the final.", "The runner broke the national record in the championship."),
+            ("Shares rose after the company reported quarterly profit.", "The central bank changed interest rates after inflation data."),
+            ("The museum opened an exhibition of modern sculpture.", "The orchestra performed a newly restored symphony."),
+        ),
+        "eval": (
+            ("Biologists discovered how the protein repairs damaged cells.", "A spacecraft collected samples from the asteroid."),
+            ("The goalkeeper saved the penalty in the final minute.", "The club signed a midfielder before the new season."),
+            ("Investors reacted to the merger and revenue forecast.", "Bond prices changed as markets assessed the budget."),
+            ("The novelist received an award for her latest book.", "A gallery displayed paintings from the early twentieth century."),
+        ),
+    },
+    "speech_act": {
+        "train": (
+            ("Where did you place the signed contract?", "Why is the network unavailable this morning?"),
+            ("Close the door and restart the computer now.", "Submit the completed form before leaving the office."),
+            ("Could you please send me the revised schedule?", "Would you help us review this document?"),
+            ("The backup completed successfully during the night.", "Our next appointment is scheduled for Thursday."),
+        ),
+        "eval": (
+            ("When will the replacement part arrive?", "Which route should we take to the station?"),
+            ("Turn off the alarm and evacuate the building.", "Write your identification number at the top."),
+            ("Please explain the final step when you have time.", "Could you reserve a quiet table for us?"),
+            ("The application stores its settings in a local file.", "The committee approved the proposal yesterday."),
+        ),
+    },
+    "temporality": {
+        "train": (
+            ("The train departed before sunrise yesterday.", "She completed the analysis last week."),
+            ("The engineers are testing the system right now.", "He currently works in the downtown office."),
+            ("The new bridge will open next summer.", "They are going to publish the results tomorrow."),
+            ("If the weather improved, we would continue the climb.", "She might attend if the meeting were rescheduled."),
+        ),
+        "eval": (
+            ("The team delivered the prototype two months ago.", "I visited the archive during the previous winter."),
+            ("The server is processing the request at this moment.", "They now live near the northern coast."),
+            ("We will review the application next Monday.", "The company plans to expand later this year."),
+            ("Were the price lower, I would purchase it.", "If he knew the answer, he might tell us."),
+        ),
+    },
+}
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -328,41 +385,46 @@ def adapter_digest(model: torch.nn.Module) -> str:
 
 def build_tasks(tokenizer, keys_per_task: int, num_labels: int) -> tuple[list[list[Example]], list[list[Example]], dict]:
     if keys_per_task != num_labels:
-        raise ValueError("sealed classification protocol uses one key per class")
-    if keys_per_task != len(KEY_NAMES):
-        raise ValueError("sealed classification protocol requires four semantic keys")
+        raise ValueError("sealed semantic protocol uses four classes per task")
+    if set(SEMANTIC_TASKS) != set(TASK_NAMES):
+        raise ValueError("semantic task declaration mismatch")
     train_tasks, eval_tasks = [], []
-    mappings = {}
     for task_index, domain in enumerate(TASK_NAMES):
-        rng = np.random.default_rng(10_000 + task_index)
-        permuted = list(np.arange(num_labels, dtype=np.int64)[rng.permutation(keys_per_task)])
-        mappings[domain] = {KEY_NAMES[key]: int(permuted[key]) for key in range(keys_per_task)}
         train, evaluate = [], []
-        for key_index in range(keys_per_task):
-            key = KEY_NAMES[key_index]
-            target_id = int(permuted[key_index])
-            for template in TRAIN_TEMPLATES:
-                prompt = template.format(domain=domain, key=key)
-                prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+        declaration = SEMANTIC_TASKS[domain]
+        if len(declaration["train"]) != num_labels or len(declaration["eval"]) != num_labels:
+            raise ValueError("semantic label count mismatch")
+        for target_id in range(num_labels):
+            for sentence_index, sentence in enumerate(declaration["train"][target_id]):
+                template = TRAIN_TEMPLATES[sentence_index % len(TRAIN_TEMPLATES)]
+                prompt_ids = tokenizer.encode(
+                    template.format(domain=domain, text=sentence), add_special_tokens=False
+                )
                 ids = tuple(int(value) for value in prompt_ids)
                 if len(ids) > LLMRecordCodec.MAX_LENGTH:
-                    raise RuntimeError("prompt exceeds fixed token length")
-                train.append(Example(task_index, ids, len(prompt_ids) - 1, target_id))
-            for template in EVAL_TEMPLATES:
-                prompt = template.format(domain=domain, key=key)
-                prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+                    raise RuntimeError("semantic training prompt exceeds fixed token length")
+                train.append(Example(task_index, ids, len(ids) - 1, target_id))
+            for sentence_index, sentence in enumerate(declaration["eval"][target_id]):
+                template = EVAL_TEMPLATES[sentence_index % len(EVAL_TEMPLATES)]
+                prompt_ids = tokenizer.encode(
+                    template.format(domain=domain, text=sentence), add_special_tokens=False
+                )
                 ids = tuple(int(value) for value in prompt_ids)
                 if len(ids) > LLMRecordCodec.MAX_LENGTH:
-                    raise RuntimeError("evaluation prompt exceeds fixed token length")
-                evaluate.append(Example(task_index, ids, len(prompt_ids) - 1, target_id))
+                    raise RuntimeError("semantic evaluation prompt exceeds fixed token length")
+                evaluate.append(Example(task_index, ids, len(ids) - 1, target_id))
         train_tasks.append(train)
         eval_tasks.append(evaluate)
-    mapping_bytes = json.dumps(mappings, sort_keys=True).encode()
+    declaration_bytes = json.dumps({
+        "tasks": SEMANTIC_TASKS,
+        "train_templates": TRAIN_TEMPLATES,
+        "eval_templates": EVAL_TEMPLATES,
+    }, sort_keys=True).encode()
     metadata = {
+        "suite": "controlled_semantic_continual_classification_v1",
         "num_labels": num_labels,
         "label_ids": list(range(num_labels)),
-        "semantic_keys": list(KEY_NAMES),
-        "mapping_sha256": sha256_bytes(mapping_bytes),
+        "mapping_sha256": sha256_bytes(declaration_bytes),
         "train_examples_per_task": len(train_tasks[0]),
         "evaluation_examples_per_task": len(eval_tasks[0]),
     }
@@ -593,7 +655,7 @@ def run(args) -> dict:
     total_model_parameters = sum(parameter.numel() for parameter in model.parameters())
     counted_flops = 6 * total_model_parameters * dense_tokens
     payload = {
-        "schema": "dfc-qwen-continual-v3",
+        "schema": "dfc-qwen-continual-v4",
         "method": args.method,
         "seed": args.seed,
         "model": args.model,
