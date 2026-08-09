@@ -92,26 +92,26 @@ jobs:
           mkdir -p llm_results
           python llm_continual_benchmark.py \
             --method sequential \
-            --seed 1051 \
+            --seed 1087 \
             --revision "$revision" \
             --partial-layers 2 \
             --keys-per-task 4 \
             --num-labels 4 \
             --head-width 256 \
-            --updates-per-task 128 \
+            --updates-per-task 512 \
             --batch-size 2 \
             --external-bytes 2048 \
-            --learning-rate 0.0001 \
-            --classifier-learning-rate 0.003 \
+            --learning-rate 0.00002 \
+            --classifier-learning-rate 0.0005 \
             --distill-weight 0.1 \
             --max-grad-norm 1.0 \
             --threads 4 \
-            --output llm_results/qwen_sequential_seed1051.json
+            --output llm_results/qwen_sequential_seed1087.json
           sha256sum llm_results/*.json > llm_results/SHA256SUMS.txt
-          python -m pip freeze > llm_results/environment_seed1051.txt
+          python -m pip freeze > llm_results/environment_seed1087.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: qwen-partial-acquisition-pilot-1051
+          name: qwen-stable-partial-acquisition-pilot-1087
           path: remote/llm_results/
           if-no-files-found: error
       - name: Persist immutable acquisition evidence
@@ -119,16 +119,16 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git checkout -b "result-${GITHUB_RUN_ID}-qwen-partial-pilot-1051"
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-stable-partial-pilot-1087"
           git add -f llm_results/
-          git commit -m "Qwen partial-finetuning acquisition pilot 1051"
+          git commit -m "Qwen stable partial-finetuning pilot 1087"
           git push origin HEAD
       - name: Enforce acquisition gate after evidence persistence
         working-directory: remote
         run: |
           python - <<'PY'
           import json
-          row = json.load(open("llm_results/qwen_sequential_seed1051.json"))
+          row = json.load(open("llm_results/qwen_sequential_seed1087.json"))
           diagonal = [row["accuracy_matrix"][i][i] for i in range(4)]
           assert row["adaptation_head"] == "masked_mean_mlp_sequence_classification"
           assert row["adaptation"]["mode"] == "partial_last_transformer_blocks"
