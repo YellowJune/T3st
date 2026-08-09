@@ -1,0 +1,5 @@
+platform Linux-6.17.0-1020-azure-x86_64-with-glibc2.39
+torch 2.13.0+cpu
+cuda False
+rapl []
+cpu_count 4
