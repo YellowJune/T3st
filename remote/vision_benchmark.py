@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 import random
 import resource
-import struct
 import time
 import zlib
 
@@ -21,7 +20,12 @@ from torch.utils.data import DataLoader, Subset
 from torchvision.datasets import CIFAR100
 from torchvision.transforms import ToTensor
 
-from torch_fiber import DFCAdamW, TorchSignFiberChannel
+from torch_fiber import (
+    DFCAdamW,
+    DFCLow16AdamW,
+    TorchLow16FiberChannel,
+    TorchSignFiberChannel,
+)
 
 
 class ArrayChannel:
@@ -33,10 +37,14 @@ class ArrayChannel:
         return len(self.storage)
 
     def read_bytes(self, start: int, count: int) -> bytes:
+        if start < 0 or count < 0 or start + count > self.byte_capacity:
+            raise IndexError("external channel range out of bounds")
         return bytes(self.storage[start : start + count])
 
     def write_bytes(self, start: int, payload) -> None:
         raw = bytes(payload)
+        if start < 0 or start + len(raw) > self.byte_capacity:
+            raise IndexError("external channel range out of bounds")
         self.storage[start : start + len(raw)] = raw
 
 
@@ -300,6 +308,7 @@ def run(args) -> dict:
     np.random.seed(args.seed)
     random.seed(args.seed)
     torch.set_num_threads(args.threads)
+    torch.use_deterministic_algorithms(True)
     device = torch.device(args.device)
     train = CIFAR100(args.data, train=True, download=True, transform=ToTensor())
     test = CIFAR100(args.data, train=False, download=True, transform=ToTensor())
@@ -313,13 +322,28 @@ def run(args) -> dict:
 
     model = CifarResNet(width=args.width).to(device)
     macs_per_example = dense_macs_per_example(model)
-    optimizer = DFCAdamW(
-        model.parameters(), lr=args.lr, weight_decay=args.weight_decay,
-        enable_fiber=args.method in {"dfc_sign_er", "dfc_sign_derpp"}
-    )
+    if args.method == "dfc_low16_derpp":
+        optimizer = DFCLow16AdamW(
+            model.parameters(), lr=args.lr, weight_decay=args.weight_decay, enable_fiber=True
+        )
+        state_decoder = "BF16-high semantics in FP32 containers"
+    else:
+        optimizer = DFCAdamW(
+            model.parameters(), lr=args.lr, weight_decay=args.weight_decay,
+            enable_fiber=args.method in {"dfc_sign_er", "dfc_sign_derpp"}
+        )
+        state_decoder = (
+            "full-FP32 absolute-value second moment"
+            if args.method in {"dfc_sign_er", "dfc_sign_derpp"}
+            else "ordinary full-FP32 AdamW"
+        )
     external = ArrayChannel(args.memory_bytes)
     if args.method in {"dfc_sign_er", "dfc_sign_derpp"}:
         fiber = TorchSignFiberChannel(optimizer)
+        channel = CompositeChannel([fiber, external])
+        internal_bytes = fiber.byte_capacity
+    elif args.method == "dfc_low16_derpp":
+        fiber = TorchLow16FiberChannel(optimizer)
         channel = CompositeChannel([fiber, external])
         internal_bytes = fiber.byte_capacity
     elif args.method in {"er", "derpp"}:
@@ -367,7 +391,7 @@ def run(args) -> dict:
             seen_classes = 10 * (task_index + 1)
             predictions = model(x.to(device))
             loss = loss_fn(predictions[:, :seen_classes], y.to(device))
-            if n_replay and args.method in {"derpp", "dfc_sign_derpp"}:
+            if n_replay and args.method in {"derpp", "dfc_sign_derpp", "dfc_low16_derpp"}:
                 loss = loss + args.distill_weight * F.mse_loss(
                     predictions[-n_replay:, :seen_classes],
                     logits_old.to(device)[:, :seen_classes],
@@ -402,6 +426,7 @@ def run(args) -> dict:
         "seed": args.seed,
         "parameter_count": parameter_count,
         "model": f"CifarResNet-width{args.width}-blocks2",
+        "state_decoder": state_decoder,
         "final_average_accuracy": float(np.mean(final)),
         "average_forgetting": float(forgetting),
         "current_task_accuracy": float(matrix[-1, -1]),
@@ -443,7 +468,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--method",
-        choices=("naive", "er", "dfc_sign_er", "derpp", "dfc_sign_derpp"),
+        choices=(
+            "naive", "er", "dfc_sign_er", "derpp", "dfc_sign_derpp",
+            "dfc_low16_derpp",
+        ),
         required=True,
     )
     parser.add_argument("--seed", type=int, required=True)
