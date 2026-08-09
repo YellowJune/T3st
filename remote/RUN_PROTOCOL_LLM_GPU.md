@@ -2,15 +2,54 @@
 
 ## Qwen continual adaptation matrix
 
-Run `31298252568` is a rejected causal-LM acquisition pilot: every method remained at eight-way 12.5% chance. Run `31299088264` is also rejected in full: expanding LoRA targets, doubling updates, and reducing the task to four labels left its completed cells at four-way 25%. Run `31301234609` replaced the vocabulary head with `Qwen2ForSequenceClassification` and still produced a `[0.25,0.25,0.25,0.25]` learning diagonal. Run `31302105163` used masked-mean pooling, an MLP head, natural key words, and separate head/LoRA learning rates, but the arbitrary codebook task remained at chance. Run `31302986996` replaced codebooks with four disjoint natural-language task datasets; LoRA-only adaptation still failed the acquisition gate at 25%. Run `31303768550` switched to two-block partial fine-tuning and finally learned above chance, but its `[0.50,1.00,0.75,0.375]` diagonal averaged only 65.625% and failed the unchanged gate. No row from these runs may enter a performance table.
+Runs `31298252568`, `31299088264`, `31301234609`, `31302105163`, and
+`31302986996` are rejected chance-level LoRA or classification-head pilots.
+Run `31303768550` switched to two-block partial fine-tuning but its
+`[0.50,1.00,0.75,0.375]` learning diagonal failed acquisition. Run
+`31304365772` lengthened every task to 512 updates and reduced the two-block
+and head learning rates to 0.00002 and 0.0005. Its immutable diagonal was
+`[0.625,1.00,0.75,0.375]`, mean 0.6875, so that entire controlled eight-example
+suite is rejected. No row from any rejected run may enter a performance table.
 
-The replacement keeps the semantic task suite but discards LoRA-only adaptation. It loads the immutable `Qwen/Qwen2.5-0.5B` base, masked-mean pools every non-padding hidden state, and directly fine-tunes the final two transformer blocks, final norm, and an FP32 LayerNorm--256-GELU--4 MLP head. The partial-model and head learning rates are 0.00002 and 0.0005, respectively, with global norm ceiling 1; each task receives 512 updates to replace the unstable 128-update operating point. Sequential, external DER++, and full-FP32 DFC-Sign+DER++ use identical base weights, partial parameters, MLP parameters, two FP32 Adam states, actual 2,048-byte external arrays, batch shape, fixed sequence length 48, updates, and counted dense Transformer FLOPs.
+The replacement is a new, predeclared public-data protocol. It loads immutable
+revisions of `Qwen/Qwen2.5-0.5B`, AG News, DAIR Emotion, MTEB Banking77, and
+TREC before learning and records every resolved commit, split schema, row count,
+and manifest hash. Four deterministic SHA256-ranked, disjoint classification
+subsets are used: all four AG News classes; sadness/joy/anger/fear from Emotion;
+activate-card/cancel-transfer/country-support/forgotten-passcode from Banking77;
+and entity/description/human/numeric from TREC. Each task has 32 training and 32
+test examples per class. Prompts state the dataset-specific four-class ontology
+but never the answer. Tokenization is capped at 48 tokens and the exact selected
+row hashes are recorded.
 
-The stream contains four natural-language tasks: sentiment (positive, negative, neutral, mixed), topic (science, sport, finance, arts), speech act (question, command, request, statement), and temporality (past, present, future, hypothetical). Each task has eight training and eight disjoint evaluation sentences in two fixed prompt forms; label indices are shared while their semantics differ by task. A 256-byte record carries the actual token sequence, target class, all four FP16 dark logits, type/version fields, and CRC32. External DER++ can address seven records. DFC-Sign composes the same external array with exactly `floor(p/8)` bytes in the signs of the full-FP32 Adam second moments; it adds no tensor and clears every sign before arithmetic.
+The model masked-mean pools all non-padding Qwen states and trains the final
+transformer block, final norm, and an FP32 LayerNorm--256--GELU--4 head. The
+block and head learning rates are 0.000001 and 0.001, respectively, with global
+gradient-norm ceiling 1. Each task receives 512 updates. Sequential, external
+DER++, and full-FP32 DFC-Sign+DER++ use identical model tensors, trainable
+parameters, two FP32 Adam states, actual 2,048-byte external arrays, batch two,
+sequence length 48, update count, and counted dense Transformer FLOPs.
 
-Before drawing any comparative seed, untouched seed `1087` is an acquisition-only sequential pilot with 512 updates per task and batch 2. It is admitted only if every diagonal task accuracy is at least 75% and their mean is at least 90%; this pilot can never enter the comparative table. If it passes, the final untouched seeds are `1091`, `1093`, and `1097`. Both replay methods use one current and one replay sequence, one insertion per update, and dark-logit coefficient 0.1; sequential uses two current sequences in the same dense batch. A checkpoint round trip after task two must reproduce the payload digest. Final acceptance requires DFC mean acquisition accuracy at least 90%, at least +10 final-accuracy points and +10 forgetting-reduction points versus external DER++, current-task accuracy no more than one point lower, and final classification NLL no higher. Any source/revision, matrix, metric, capacity, checkpoint, or paired-resource mismatch rejects the entire matrix.
+A 256-byte replay record carries the actual token sequence, target, all four
+FP16 dark logits, type/version fields, and CRC32. External DER++ can address
+seven records. DFC-Sign composes the same 2,048-byte array with exactly
+`floor(p/8)` bytes in the sign fiber of the ordinary full-FP32 Adam second
+moments. No tensor is added, and every sign is decoded before numerical
+arithmetic. Both replay methods use one current and one replay sequence and one
+insertion per update; sequential uses two current sequences in the identical
+dense batch. A checkpoint round trip after task two must preserve the payload
+digest exactly.
 
-The acquisition workflow persists its immutable run manifest and raw pilot branch before enforcing the accuracy threshold.
+Untouched seed `1123` is acquisition-only and can never enter the comparative
+table. It is admitted only when every public-dataset diagonal accuracy is at
+least 80% and the four-task mean is at least 90%. If it passes, the final
+untouched seeds are `1129`, `1151`, and `1171`. Final acceptance requires
+DFC mean learning accuracy at least 90%, at least +10 final-accuracy points and
++10 forgetting-reduction points versus external DER++, current-task accuracy no
+more than one point lower, and final NLL no higher. Any source, immutable
+revision, dataset subset, matrix, metric, capacity, checkpoint, physical-byte,
+or counted-FLOP mismatch rejects the matrix. Manifests and raw results are
+persisted on isolated branches before any acceptance assertion.
 
 ## Triton actual-GPU gate
 
