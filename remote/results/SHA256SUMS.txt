@@ -1,0 +1,1 @@
+99c4c08b335e5cb7d83ba4a3fca3a670382d9af5009fd7d666d6af7b692177e2  results/cifar100_er_seed301.json
