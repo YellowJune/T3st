@@ -66,7 +66,7 @@ def main() -> None:
     rows, hashes = [], {}
     for path in paths:
         row = json.loads(path.read_text(encoding="utf-8"))
-        require(row["schema"] == "dfc-qwen-continual-v4", f"schema {path.name}")
+        require(row["schema"] == "dfc-qwen-continual-v5", f"schema {path.name}")
         require(row["adaptation_head"] == "masked_mean_mlp_sequence_classification",
                 f"head {path.name}")
         metrics = recompute(row)
@@ -92,12 +92,15 @@ def main() -> None:
             require(len({row["resources"][key] for row in paired}) == 1,
                     f"resource {key} seed {seed}")
         protocol_keys = ("total_updates", "batch_size", "maximum_length", "dense_tokens",
-                         "counted_dense_neural_flops")
+                         "counted_dense_neural_flops", "learning_rate",
+                         "classifier_learning_rate", "distill_weight")
         for key in protocol_keys:
             require(len({row["protocol"][key] for row in paired}) == 1,
                     f"protocol {key} seed {seed}")
         dfc = next(row for row in paired if row["method"] == "dfc_sign_derpp")
-        p = int(dfc["lora"]["trainable_parameters"])
+        require(dfc["adaptation"]["mode"] == "partial_last_transformer_blocks",
+                f"adaptation mode seed {seed}")
+        p = int(dfc["adaptation"]["trainable_parameters"])
         require(dfc["resources"]["internal_sign_fiber_bytes"] == p // 8,
                 f"sign capacity seed {seed}")
         require(all(boundary["sha256"] for boundary in dfc["payload_boundaries"]),
@@ -147,7 +150,7 @@ def main() -> None:
         and gate["final_nll_reduction"] >= 0
     )
     report = {
-        "schema": "dfc-qwen-continual-aggregate-v4",
+        "schema": "dfc-qwen-continual-aggregate-v5",
         "accepted_workflow_run": args.run_id,
         "accepted_commit_sha": args.commit_sha,
         "methods": METHODS,
