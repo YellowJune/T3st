@@ -54,8 +54,8 @@ def main() -> None:
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--commit-sha", required=True)
-    parser.add_argument("--seeds", default="1213,1223,1231")
-    parser.add_argument("--minimum-learning-accuracy", type=float, default=0.90)
+    parser.add_argument("--seeds", default="1319,1321,1327")
+    parser.add_argument("--minimum-learning-accuracy", type=float, default=0.92)
     parser.add_argument("--minimum-accuracy-gain-pp", type=float, default=10.0)
     parser.add_argument("--minimum-forgetting-reduction-pp", type=float, default=10.0)
     parser.add_argument("--output", type=Path, required=True)
@@ -66,7 +66,7 @@ def main() -> None:
     rows, hashes = [], {}
     for path in paths:
         row = json.loads(path.read_text(encoding="utf-8"))
-        require(row["schema"] == "dfc-qwen-verbalizer-v1", f"schema {path.name}")
+        require(row["schema"] == "dfc-qwen-choice-v1", f"schema {path.name}")
         require(row["model"] == "Qwen/Qwen2.5-0.5B-Instruct",
                 f"model {path.name}")
         claimed_result_sha = row.get("result_sha256")
@@ -77,7 +77,7 @@ def main() -> None:
                 f"result digest {path.name}")
         require(row["requested_revision"] == row["resolved_revision"],
                 f"model revision {path.name}")
-        require(row["dataset"]["suite"] == "hf_public_verbalizer_v1",
+        require(row["dataset"]["suite"] == "hf_public_choice_v1",
                 f"dataset suite {path.name}")
         require(row["dataset"]["train_examples_per_task"] == 128,
                 f"train rows {path.name}")
@@ -86,20 +86,20 @@ def main() -> None:
         require(len(row["dataset"]["repositories"]) == 4,
                 f"dataset repositories {path.name}")
         for task in row["dataset"]["repositories"]:
-            require(len(task["verbalizers"]) == 4,
-                    f"verbalizer words {path.name}")
+            require(task["verbalizers"] == ["A", "B", "C", "D"],
+                    f"choice words {path.name}")
             require(len(set(task["verbalizer_token_ids"])) == 4,
-                    f"verbalizer token ids {path.name}")
-        require(row["lora"]["rank"] == 8 and row["lora"]["alpha"] == 16.0,
+                    f"choice token ids {path.name}")
+        require(row["lora"]["rank"] == 16 and row["lora"]["alpha"] == 32.0,
                 f"LoRA geometry {path.name}")
         require(len(row["lora"]["target_modules"]) == 96,
                 f"LoRA targets {path.name}")
         protocol = row["protocol"]
-        require(protocol["tasks"] == 4 and protocol["updates_per_task"] == 512,
+        require(protocol["tasks"] == 4 and protocol["updates_per_task"] == 1024,
                 f"task/update protocol {path.name}")
-        require(protocol["total_updates"] == 2048 and protocol["batch_size"] == 2,
+        require(protocol["total_updates"] == 4096 and protocol["batch_size"] == 2,
                 f"total update protocol {path.name}")
-        require(protocol["maximum_length"] == 48 and protocol["dense_tokens"] == 196608,
+        require(protocol["maximum_length"] == 48 and protocol["dense_tokens"] == 393216,
                 f"token protocol {path.name}")
         require(protocol["learning_rate"] == 5e-4,
                 f"learning rate {path.name}")
@@ -146,7 +146,7 @@ def main() -> None:
             require(len({row["protocol"][key] for row in paired}) == 1,
                     f"protocol {key} seed {seed}")
         dfc = next(row for row in paired if row["method"] == "dfc_sign_derpp")
-        require(dfc["lora"]["rank"] == 8 and dfc["lora"]["alpha"] == 16.0,
+        require(dfc["lora"]["rank"] == 16 and dfc["lora"]["alpha"] == 32.0,
                 f"LoRA geometry seed {seed}")
         p = int(dfc["lora"]["trainable_parameters"])
         require(dfc["resources"]["internal_sign_fiber_bytes"] == p // 8,
@@ -206,7 +206,7 @@ def main() -> None:
         and gate["final_nll_reduction"] >= 0
     )
     report = {
-        "schema": "dfc-qwen-verbalizer-aggregate-v1",
+        "schema": "dfc-qwen-choice-aggregate-v1",
         "accepted_workflow_run": args.run_id,
         "accepted_commit_sha": args.commit_sha,
         "methods": METHODS,
