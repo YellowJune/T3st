@@ -189,6 +189,7 @@ def build_real_tasks(tokenizer, keys_per_task: int, num_labels: int):
         "train_examples_per_task": 4 * TRAIN_PER_CLASS,
         "evaluation_examples_per_task": 4 * EVAL_PER_CLASS,
         "repositories": declarations,
+        "manifest_sha256": MANIFEST["manifest_sha256"],
     }
     return train_tasks, eval_tasks, metadata
 
@@ -219,6 +220,11 @@ def main() -> None:
 
     global MANIFEST
     MANIFEST = json.loads(args.dataset_manifest.read_text(encoding="utf-8"))
+    claimed_manifest_sha = MANIFEST.get("manifest_sha256")
+    unhashed_manifest = dict(MANIFEST)
+    unhashed_manifest.pop("manifest_sha256", None)
+    if claimed_manifest_sha != _canonical_sha(unhashed_manifest):
+        raise RuntimeError("dataset manifest SHA256 mismatch")
     if MANIFEST["model"]["repo"] != args.model:
         raise RuntimeError("model manifest identity mismatch")
     if MANIFEST["model"]["revision"] != args.revision:
