@@ -1,4 +1,4 @@
-name: DFC CIFAR-100 stability final
+name: DFC CIFAR-100 balanced final
 
 on:
   push:
@@ -80,7 +80,7 @@ jobs:
       max-parallel: 9
       matrix:
         method: [naive, derpp, dfc_low16_derpp]
-        seed: [431, 433, 439]
+        seed: [449, 457, 461]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -102,11 +102,11 @@ jobs:
           --seed ${{ matrix.seed }}
           --updates-per-task 300
           --batch-size 64
-          --replay-count 48
+          --replay-count 40
           --width 48
           --memory-bytes 32768
           --insert-count 4
-          --distill-weight 1.0
+          --distill-weight 0.65
           --threads 4
           --output results/cifar100_${{ matrix.method }}_seed${{ matrix.seed }}.json
       - name: Hash result
