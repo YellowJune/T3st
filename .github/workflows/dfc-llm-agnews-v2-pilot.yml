@@ -1,0 +1,48 @@
+name: DFC Qwen AG News v2 pilot
+
+on:
+  push:
+    branches: [dfc-v2.1-validation]
+    paths: ['.github/workflows/dfc-llm-agnews-v2-pilot.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pilot:
+    name: qwen-agnews-v2-${{ matrix.method }}-seed1201
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        method: [derpp, dfc_sign_derpp]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'peft>=0.15,<1' 'accelerate>=1.4,<2' 'huggingface_hub>=0.30,<1' 'datasets>=3,<5' sentencepiece
+      - name: Run paired-development method
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+        working-directory: remote
+        run: |
+          python llm_continual_qwen_agnews_v2.py \
+            --method '${{ matrix.method }}' --seed 1201 \
+            --steps-per-task 64 --external-bytes 512 \
+            --train-per-class 32 --eval-per-class 64 \
+            --lora-rank 4 --lora-last-layers 4 --lr 0.01 \
+            --distill-weight 0.025 \
+            --output '../results/validation_v21/qwen_agnews_v2_${{ matrix.method }}_seed1201.json'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qwen-agnews-v2-${{ matrix.method }}-seed1201
+          path: results/validation_v21/qwen_agnews_v2_${{ matrix.method }}_seed1201.json
+          if-no-files-found: error
