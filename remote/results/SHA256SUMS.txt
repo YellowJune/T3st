@@ -1,0 +1,1 @@
+9574385b68ad323a6c522cd5ce81836defc77fe273d3141b6ae14a86035bec5c  results/cifar100_dfc_sign_er_seed302.json
