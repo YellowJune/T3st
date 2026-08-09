@@ -54,7 +54,7 @@ def main() -> None:
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--commit-sha", required=True)
-    parser.add_argument("--seeds", default="1129,1151,1171")
+    parser.add_argument("--seeds", default="1213,1223,1231")
     parser.add_argument("--minimum-learning-accuracy", type=float, default=0.90)
     parser.add_argument("--minimum-accuracy-gain-pp", type=float, default=10.0)
     parser.add_argument("--minimum-forgetting-reduction-pp", type=float, default=10.0)
@@ -66,19 +66,18 @@ def main() -> None:
     rows, hashes = [], {}
     for path in paths:
         row = json.loads(path.read_text(encoding="utf-8"))
-        require(row["schema"] == "dfc-qwen-public-continual-v1", f"schema {path.name}")
-        require(row["adaptation_head"] == "masked_mean_mlp_sequence_classification",
-                f"head {path.name}")
+        require(row["schema"] == "dfc-qwen-verbalizer-v1", f"schema {path.name}")
+        require(row["model"] == "Qwen/Qwen2.5-0.5B-Instruct",
+                f"model {path.name}")
         claimed_result_sha = row.get("result_sha256")
         unhashed = dict(row)
         unhashed.pop("result_sha256", None)
         canonical = json.dumps(unhashed, sort_keys=True, separators=(",", ":")).encode()
         require(hashlib.sha256(canonical).hexdigest() == claimed_result_sha,
                 f"result digest {path.name}")
-        require(row["model"] == "Qwen/Qwen2.5-0.5B", f"model {path.name}")
         require(row["requested_revision"] == row["resolved_revision"],
                 f"model revision {path.name}")
-        require(row["dataset"]["suite"] == "hf_public_four_domain_v1",
+        require(row["dataset"]["suite"] == "hf_public_verbalizer_v1",
                 f"dataset suite {path.name}")
         require(row["dataset"]["train_examples_per_task"] == 128,
                 f"train rows {path.name}")
@@ -86,10 +85,15 @@ def main() -> None:
                 f"test rows {path.name}")
         require(len(row["dataset"]["repositories"]) == 4,
                 f"dataset repositories {path.name}")
-        require(row["adaptation"]["mode"] == "partial_last_transformer_blocks",
-                f"adaptation mode {path.name}")
-        require(row["adaptation"]["partial_layers"] == 1,
-                f"partial layers {path.name}")
+        for task in row["dataset"]["repositories"]:
+            require(len(task["verbalizers"]) == 4,
+                    f"verbalizer words {path.name}")
+            require(len(set(task["verbalizer_token_ids"])) == 4,
+                    f"verbalizer token ids {path.name}")
+        require(row["lora"]["rank"] == 8 and row["lora"]["alpha"] == 16.0,
+                f"LoRA geometry {path.name}")
+        require(len(row["lora"]["target_modules"]) == 96,
+                f"LoRA targets {path.name}")
         protocol = row["protocol"]
         require(protocol["tasks"] == 4 and protocol["updates_per_task"] == 512,
                 f"task/update protocol {path.name}")
@@ -97,10 +101,10 @@ def main() -> None:
                 f"total update protocol {path.name}")
         require(protocol["maximum_length"] == 48 and protocol["dense_tokens"] == 196608,
                 f"token protocol {path.name}")
-        require(protocol["learning_rate"] == 1e-6,
-                f"block learning rate {path.name}")
-        require(protocol["classifier_learning_rate"] == 1e-3,
-                f"head learning rate {path.name}")
+        require(protocol["learning_rate"] == 5e-4,
+                f"learning rate {path.name}")
+        require(protocol["distill_weight"] == 0.1,
+                f"distillation coefficient {path.name}")
         require(row["resources"]["external_allocated_bytes"] == 2048,
                 f"external bytes {path.name}")
         metrics = recompute(row)
@@ -126,8 +130,6 @@ def main() -> None:
             "core source mismatch")
     require(len({row["digests"]["optimizer_source_sha256"] for row in rows}) == 1,
             "optimizer source mismatch")
-    require(len({row["digests"]["public_dataset_wrapper_sha256"] for row in rows}) == 1,
-            "wrapper source mismatch")
     for seed in seeds:
         paired = [row for row in rows if int(row["seed"]) == seed]
         resource_keys = (
@@ -139,16 +141,14 @@ def main() -> None:
                     f"resource {key} seed {seed}")
         protocol_keys = ("total_updates", "batch_size", "maximum_length", "dense_tokens",
                          "counted_dense_neural_flops", "learning_rate",
-                         "classifier_learning_rate", "distill_weight")
+                         "distill_weight")
         for key in protocol_keys:
             require(len({row["protocol"][key] for row in paired}) == 1,
                     f"protocol {key} seed {seed}")
         dfc = next(row for row in paired if row["method"] == "dfc_sign_derpp")
-        require(dfc["adaptation"]["mode"] == "partial_last_transformer_blocks",
-                f"adaptation mode seed {seed}")
-        require(dfc["adaptation"]["partial_layers"] == 1,
-                f"partial layers seed {seed}")
-        p = int(dfc["adaptation"]["trainable_parameters"])
+        require(dfc["lora"]["rank"] == 8 and dfc["lora"]["alpha"] == 16.0,
+                f"LoRA geometry seed {seed}")
+        p = int(dfc["lora"]["trainable_parameters"])
         require(dfc["resources"]["internal_sign_fiber_bytes"] == p // 8,
                 f"sign capacity seed {seed}")
         require(dfc["resources"]["logical_replay_bytes"] == 2048 + p // 8,
@@ -206,7 +206,7 @@ def main() -> None:
         and gate["final_nll_reduction"] >= 0
     )
     report = {
-        "schema": "dfc-qwen-public-aggregate-v1",
+        "schema": "dfc-qwen-verbalizer-aggregate-v1",
         "accepted_workflow_run": args.run_id,
         "accepted_commit_sha": args.commit_sha,
         "methods": METHODS,
