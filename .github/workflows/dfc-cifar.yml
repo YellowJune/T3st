@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   exactness:
@@ -43,6 +43,14 @@ jobs:
           name: dfc-environment-and-exactness
           path: results/environment.txt
           if-no-files-found: error
+      - name: Persist exactness evidence on an isolated result branch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -b "result-${GITHUB_RUN_ID}-exactness"
+          git add -f results/environment.txt
+          git commit -m "DFC exactness environment ${GITHUB_RUN_ID}"
+          git push origin HEAD
 
   cifar100:
     needs: exactness
@@ -88,4 +96,12 @@ jobs:
           name: cifar100-${{ matrix.method }}-seed${{ matrix.seed }}
           path: remote/results/
           if-no-files-found: error
-
+      - name: Persist result on an isolated branch
+        working-directory: remote
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -b "result-${GITHUB_RUN_ID}-${{ matrix.method }}-${{ matrix.seed }}"
+          git add -f results/
+          git commit -m "CIFAR-100 ${{ matrix.method }} seed ${{ matrix.seed }}"
+          git push origin HEAD
