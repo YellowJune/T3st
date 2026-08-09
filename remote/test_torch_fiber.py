@@ -73,12 +73,14 @@ class TorchFiberTests(unittest.TestCase):
     def test_cifar_codec_shape_crc_and_error_bound(self):
         torch.manual_seed(47)
         x = torch.rand(3, 32, 32)
-        raw = CIFAR4BitCodec.encode(x, 73, 7)
-        restored, label, task = CIFAR4BitCodec.decode(raw)
+        teacher = torch.linspace(-2, 2, 100)
+        raw = CIFAR4BitCodec.encode(x, 73, 7, teacher)
+        restored, label, task, logits = CIFAR4BitCodec.decode(raw)
         self.assertEqual(len(raw), CIFAR4BitCodec.RECORD_BYTES)
         self.assertEqual(tuple(restored.shape), (3, 32, 32))
         self.assertEqual((label, task), (73, 7))
         self.assertTrue(torch.all((restored >= 0) & (restored <= 1)))
+        self.assertTrue(torch.equal(logits, teacher.to(torch.float16).float()))
         corrupted = bytearray(raw)
         corrupted[101] ^= 1
         with self.assertRaises(RuntimeError):
