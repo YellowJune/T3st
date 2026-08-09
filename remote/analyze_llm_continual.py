@@ -54,9 +54,9 @@ def main() -> None:
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--commit-sha", required=True)
-    parser.add_argument("--seeds", default="941,947,953")
-    parser.add_argument("--minimum-learning-accuracy", type=float, default=0.75)
-    parser.add_argument("--minimum-accuracy-gain-pp", type=float, default=5.0)
+    parser.add_argument("--seeds", default="1129,1151,1171")
+    parser.add_argument("--minimum-learning-accuracy", type=float, default=0.90)
+    parser.add_argument("--minimum-accuracy-gain-pp", type=float, default=10.0)
     parser.add_argument("--minimum-forgetting-reduction-pp", type=float, default=5.0)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -66,15 +66,51 @@ def main() -> None:
     rows, hashes = [], {}
     for path in paths:
         row = json.loads(path.read_text(encoding="utf-8"))
-        require(row["schema"] == "dfc-qwen-continual-v5", f"schema {path.name}")
+        require(row["schema"] == "dfc-qwen-public-continual-v1", f"schema {path.name}")
         require(row["adaptation_head"] == "masked_mean_mlp_sequence_classification",
                 f"head {path.name}")
+        claimed_result_sha = row.get("result_sha256")
+        unhashed = dict(row)
+        unhashed.pop("result_sha256", None)
+        canonical = json.dumps(unhashed, sort_keys=True, separators=(",", ":")).encode()
+        require(hashlib.sha256(canonical).hexdigest() == claimed_result_sha,
+                f"result digest {path.name}")
+        require(row["model"] == "Qwen/Qwen2.5-0.5B", f"model {path.name}")
+        require(row["requested_revision"] == row["resolved_revision"],
+                f"model revision {path.name}")
+        require(row["dataset"]["suite"] == "hf_public_four_domain_v1",
+                f"dataset suite {path.name}")
+        require(row["dataset"]["train_examples_per_task"] == 128,
+                f"train rows {path.name}")
+        require(row["dataset"]["evaluation_examples_per_task"] == 128,
+                f"test rows {path.name}")
+        require(len(row["dataset"]["repositories"]) == 4,
+                f"dataset repositories {path.name}")
+        require(row["adaptation"]["mode"] == "partial_last_transformer_blocks",
+                f"adaptation mode {path.name}")
+        require(row["adaptation"]["partial_layers"] == 1,
+                f"partial layers {path.name}")
+        protocol = row["protocol"]
+        require(protocol["tasks"] == 4 and protocol["updates_per_task"] == 512,
+                f"task/update protocol {path.name}")
+        require(protocol["total_updates"] == 2048 and protocol["batch_size"] == 2,
+                f"total update protocol {path.name}")
+        require(protocol["maximum_length"] == 48 and protocol["dense_tokens"] == 196608,
+                f"token protocol {path.name}")
+        require(protocol["learning_rate"] == 1e-6,
+                f"block learning rate {path.name}")
+        require(protocol["classifier_learning_rate"] == 1e-3,
+                f"head learning rate {path.name}")
+        require(row["resources"]["external_allocated_bytes"] == 2048,
+                f"external bytes {path.name}")
         metrics = recompute(row)
         for key, value in metrics.items():
             require(math.isclose(value, row["metrics"][key], rel_tol=0.0, abs_tol=1e-10),
                     f"metric {key} {path.name}")
         require(row["checkpoint_gate"]["passed"] is True, f"checkpoint {path.name}")
         require(row["environment"]["github_sha"] == args.commit_sha, f"commit {path.name}")
+        require(row["environment"]["github_run_id"] == args.run_id, f"run id {path.name}")
+        require(row["environment"]["device"] == "cpu", f"device {path.name}")
         rows.append(row)
         hashes[path.name] = sha256(path)
     require({row["method"] for row in rows} == set(METHODS), "method set")
@@ -82,6 +118,16 @@ def main() -> None:
     require(len({(row["method"], int(row["seed"])) for row in rows}) == len(rows), "duplicates")
     require(len({row["resolved_revision"] for row in rows}) == 1, "model revision mismatch")
     require(len({row["dataset"]["mapping_sha256"] for row in rows}) == 1, "dataset mismatch")
+    require(len({row["dataset"]["manifest_sha256"] for row in rows}) == 1,
+            "dataset manifest mismatch")
+    require(len({json.dumps(row["dataset"]["repositories"], sort_keys=True) for row in rows}) == 1,
+            "dataset subset mismatch")
+    require(len({row["digests"]["source_sha256"] for row in rows}) == 1,
+            "core source mismatch")
+    require(len({row["digests"]["optimizer_source_sha256"] for row in rows}) == 1,
+            "optimizer source mismatch")
+    require(len({row["digests"]["public_dataset_wrapper_sha256"] for row in rows}) == 1,
+            "wrapper source mismatch")
     for seed in seeds:
         paired = [row for row in rows if int(row["seed"]) == seed]
         resource_keys = (
@@ -100,9 +146,19 @@ def main() -> None:
         dfc = next(row for row in paired if row["method"] == "dfc_sign_derpp")
         require(dfc["adaptation"]["mode"] == "partial_last_transformer_blocks",
                 f"adaptation mode seed {seed}")
+        require(dfc["adaptation"]["partial_layers"] == 1,
+                f"partial layers seed {seed}")
         p = int(dfc["adaptation"]["trainable_parameters"])
         require(dfc["resources"]["internal_sign_fiber_bytes"] == p // 8,
                 f"sign capacity seed {seed}")
+        require(dfc["resources"]["logical_replay_bytes"] == 2048 + p // 8,
+                f"logical capacity seed {seed}")
+        external = next(row for row in paired if row["method"] == "external_derpp")
+        sequential = next(row for row in paired if row["method"] == "sequential")
+        require(external["resources"]["logical_replay_bytes"] == 2048,
+                f"external logical bytes seed {seed}")
+        require(sequential["resources"]["logical_replay_bytes"] == 0,
+                f"sequential logical bytes seed {seed}")
         require(all(boundary["sha256"] for boundary in dfc["payload_boundaries"]),
                 f"payload boundary seed {seed}")
 
@@ -150,13 +206,15 @@ def main() -> None:
         and gate["final_nll_reduction"] >= 0
     )
     report = {
-        "schema": "dfc-qwen-continual-aggregate-v5",
+        "schema": "dfc-qwen-public-aggregate-v1",
         "accepted_workflow_run": args.run_id,
         "accepted_commit_sha": args.commit_sha,
         "methods": METHODS,
         "seeds": seeds,
         "cells": len(rows),
         "resolved_revision": rows[0]["resolved_revision"],
+        "dataset_manifest_sha256": rows[0]["dataset"]["manifest_sha256"],
+        "dataset_mapping_sha256": rows[0]["dataset"]["mapping_sha256"],
         "all_resource_pairs_equal": True,
         "aggregate": aggregate,
         "dominance_gate": gate,
