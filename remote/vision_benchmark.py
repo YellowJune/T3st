@@ -75,10 +75,13 @@ class CompositeChannel:
 class CIFAR4BitCodec:
     MAGIC = b"CF4B"
     SIDE = 16
-    RECORD_BYTES = 400
+    LOGIT_CLASSES = 100
+    RECORD_BYTES = 600
 
     @classmethod
-    def encode(cls, x: torch.Tensor, y: int, task: int) -> bytes:
+    def encode(
+        cls, x: torch.Tensor, y: int, task: int, logits: torch.Tensor | None = None
+    ) -> bytes:
         small = F.interpolate(
             x.detach().cpu().unsqueeze(0), size=(cls.SIDE, cls.SIDE),
             mode="bilinear", align_corners=False,
@@ -89,31 +92,48 @@ class CIFAR4BitCodec:
         raw[:4] = cls.MAGIC
         raw[4:6] = int(y).to_bytes(2, "little")
         raw[6:8] = int(task).to_bytes(2, "little")
-        payload_end = 8 + packed.size
-        raw[8:payload_end] = packed.tobytes()
+        image_end = 8 + packed.size
+        raw[8:image_end] = packed.tobytes()
+        if logits is None:
+            teacher = np.zeros(cls.LOGIT_CLASSES, dtype="<f2")
+        else:
+            teacher = logits.detach().cpu().to(torch.float16).reshape(-1).numpy().astype("<f2")
+            if teacher.size != cls.LOGIT_CLASSES:
+                raise ValueError("CIFAR DER++ record requires 100 logits")
+        payload_end = image_end + teacher.nbytes
+        raw[image_end:payload_end] = teacher.tobytes()
         raw[payload_end : payload_end + 4] = (
             zlib.crc32(raw[:payload_end]) & 0xFFFFFFFF
         ).to_bytes(4, "little")
         return bytes(raw)
 
     @classmethod
-    def decode(cls, raw: bytes) -> tuple[torch.Tensor, int, int]:
+    def decode(cls, raw: bytes) -> tuple[torch.Tensor, int, int, torch.Tensor]:
         if len(raw) != cls.RECORD_BYTES or raw[:4] != cls.MAGIC:
             raise RuntimeError("invalid CIFAR replay record")
         packed_bytes = 3 * cls.SIDE * cls.SIDE // 2
-        payload_end = 8 + packed_bytes
+        image_end = 8 + packed_bytes
+        payload_end = image_end + 2 * cls.LOGIT_CLASSES
         if zlib.crc32(raw[:payload_end]) & 0xFFFFFFFF != int.from_bytes(
             raw[payload_end : payload_end + 4], "little"
         ):
             raise RuntimeError("CIFAR replay checksum mismatch")
-        packed = np.frombuffer(raw[8:payload_end], dtype=np.uint8)
+        packed = np.frombuffer(raw[8:image_end], dtype=np.uint8)
         q = np.empty(3 * cls.SIDE * cls.SIDE, dtype=np.uint8)
         q[0::2], q[1::2] = packed & 15, packed >> 4
         small = torch.from_numpy(q.astype(np.float32).reshape(3, cls.SIDE, cls.SIDE) / 15.0)
         x = F.interpolate(
             small.unsqueeze(0), size=(32, 32), mode="bilinear", align_corners=False
         ).squeeze(0)
-        return x, int.from_bytes(raw[4:6], "little"), int.from_bytes(raw[6:8], "little")
+        logits = torch.from_numpy(
+            np.frombuffer(raw[image_end:payload_end], dtype="<f2").astype(np.float32)
+        )
+        return (
+            x,
+            int.from_bytes(raw[4:6], "little"),
+            int.from_bytes(raw[6:8], "little"),
+            logits,
+        )
 
 
 class FiberReservoir:
@@ -140,7 +160,10 @@ class FiberReservoir:
     def _offset(self, index: int) -> int:
         return self.HEADER_BYTES + index * CIFAR4BitCodec.RECORD_BYTES
 
-    def add(self, x: torch.Tensor, y: int, task: int, rng: np.random.Generator) -> None:
+    def add(
+        self, x: torch.Tensor, y: int, task: int, logits: torch.Tensor,
+        rng: np.random.Generator,
+    ) -> None:
         if self.capacity == 0:
             return
         self.seen += 1
@@ -152,10 +175,12 @@ class FiberReservoir:
             if index >= self.capacity:
                 self._header()
                 return
-        self.channel.write_bytes(self._offset(index), CIFAR4BitCodec.encode(x, y, task))
+        self.channel.write_bytes(self._offset(index), CIFAR4BitCodec.encode(x, y, task, logits))
         self._header()
 
-    def sample(self, count: int, rng: np.random.Generator) -> tuple[torch.Tensor, torch.Tensor]:
+    def sample(
+        self, count: int, rng: np.random.Generator
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         indices = rng.integers(0, self.size, size=count)
         items = [
             CIFAR4BitCodec.decode(
@@ -163,7 +188,11 @@ class FiberReservoir:
             )
             for index in indices
         ]
-        return torch.stack([item[0] for item in items]), torch.tensor([item[1] for item in items])
+        return (
+            torch.stack([item[0] for item in items]),
+            torch.tensor([item[1] for item in items]),
+            torch.stack([item[3] for item in items]),
+        )
 
 
 class BasicBlock(nn.Module):
@@ -172,14 +201,14 @@ class BasicBlock(nn.Module):
     def __init__(self, in_channels: int, channels: int, stride: int = 1):
         super().__init__()
         self.conv1 = nn.Conv2d(in_channels, channels, 3, stride, 1, bias=False)
-        self.bn1 = nn.BatchNorm2d(channels)
+        self.bn1 = nn.GroupNorm(min(8, channels), channels)
         self.conv2 = nn.Conv2d(channels, channels, 3, 1, 1, bias=False)
-        self.bn2 = nn.BatchNorm2d(channels)
+        self.bn2 = nn.GroupNorm(min(8, channels), channels)
         self.shortcut = nn.Sequential()
         if stride != 1 or in_channels != channels:
             self.shortcut = nn.Sequential(
                 nn.Conv2d(in_channels, channels, 1, stride, bias=False),
-                nn.BatchNorm2d(channels),
+                nn.GroupNorm(min(8, channels), channels),
             )
 
     def forward(self, x):
@@ -192,7 +221,8 @@ class CifarResNet(nn.Module):
     def __init__(self, width: int = 32, blocks: int = 2, classes: int = 100):
         super().__init__()
         self.stem = nn.Sequential(
-            nn.Conv2d(3, width, 3, 1, 1, bias=False), nn.BatchNorm2d(width), nn.ReLU()
+            nn.Conv2d(3, width, 3, 1, 1, bias=False),
+            nn.GroupNorm(min(8, width), width), nn.ReLU()
         )
         channels = width
         stages = []
@@ -285,14 +315,14 @@ def run(args) -> dict:
     macs_per_example = dense_macs_per_example(model)
     optimizer = DFCAdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay,
-        enable_fiber=args.method == "dfc_sign_er"
+        enable_fiber=args.method in {"dfc_sign_er", "dfc_sign_derpp"}
     )
     external = ArrayChannel(args.memory_bytes)
-    if args.method == "dfc_sign_er":
+    if args.method in {"dfc_sign_er", "dfc_sign_derpp"}:
         fiber = TorchSignFiberChannel(optimizer)
         channel = CompositeChannel([fiber, external])
         internal_bytes = fiber.byte_capacity
-    elif args.method == "er":
+    elif args.method in {"er", "derpp"}:
         channel, internal_bytes = external, 0
     else:
         channel, internal_bytes = ArrayChannel(0), 0
@@ -304,7 +334,7 @@ def run(args) -> dict:
     meter = RaplMeter()
     meter.start()
     wall_start, cpu_start = time.perf_counter(), time.process_time()
-    updates = examples = 0
+    updates = examples = auxiliary_scalar_ops = 0
 
     for task_index, indices in enumerate(train_tasks):
         generator = torch.Generator().manual_seed(args.seed * 100 + task_index)
@@ -320,27 +350,44 @@ def run(args) -> dict:
             except StopIteration:
                 iterator = iter(loader)
                 x, y = next(iterator)
-            n_replay = min(args.replay_count, args.batch_size - 1) if reservoir.size else 0
+            n_replay = (
+                min(args.replay_count, args.batch_size - 1)
+                if task_index > 0 and reservoir.size else 0
+            )
             if n_replay:
-                x_old, y_old = reservoir.sample(n_replay, replay_rng)
+                x_old, y_old, logits_old = reservoir.sample(n_replay, replay_rng)
                 x = torch.cat([x[: args.batch_size - n_replay], x_old], 0)
                 y = torch.cat([y[: args.batch_size - n_replay], y_old], 0)
             else:
                 x, y = x[: args.batch_size], y[: args.batch_size]
+                logits_old = None
             optimizer.zero_grad(set_to_none=True)
             # Class-incremental single-head training; unseen classes are masked,
             # while all classes observed so far compete in the same softmax.
             seen_classes = 10 * (task_index + 1)
-            loss = loss_fn(model(x.to(device))[:, :seen_classes], y.to(device))
+            predictions = model(x.to(device))
+            loss = loss_fn(predictions[:, :seen_classes], y.to(device))
+            if n_replay and args.method in {"derpp", "dfc_sign_derpp"}:
+                loss = loss + args.distill_weight * F.mse_loss(
+                    predictions[-n_replay:, :seen_classes],
+                    logits_old.to(device)[:, :seen_classes],
+                )
+                auxiliary_scalar_ops += 3 * n_replay * seen_classes
             loss.backward()
             optimizer.step()
+            # Online DER records reuse logits already produced by the counted
+            # forward pass; no teacher forward or extra neural FLOPs are added.
+            if args.method != "naive":
+                insert_count = min(args.insert_count, args.batch_size - n_replay)
+                teacher = predictions[:insert_count].detach().cpu()
+                for index in range(insert_count):
+                    reservoir.add(
+                        x[index].detach().cpu(), int(y[index]), task_index,
+                        teacher[index], reservoir_rng,
+                    )
             updates += 1
             examples += args.batch_size
 
-        insertion_order = reservoir_rng.permutation(indices)
-        for index in insertion_order:
-            x, y = train[int(index)]
-            reservoir.add(x, int(y), task_index, reservoir_rng)
         for old_task in range(task_index + 1):
             matrix[task_index, old_task] = evaluate(model, test_tasks[old_task], device)
 
@@ -359,7 +406,10 @@ def run(args) -> dict:
         "average_forgetting": float(forgetting),
         "current_task_accuracy": float(matrix[-1, -1]),
         "mean_learning_accuracy": float(np.mean(np.diag(matrix))),
-        "accuracy_matrix": matrix.tolist(),
+        "accuracy_matrix": [
+            [None if np.isnan(value) else float(value) for value in row]
+            for row in matrix
+        ],
         "accuracy_sha256": hashlib.sha256(matrix.tobytes()).hexdigest(),
         "external_bytes": args.memory_bytes,
         "internal_fiber_bytes": internal_bytes,
@@ -373,8 +423,12 @@ def run(args) -> dict:
         "examples_processed": examples,
         "dense_macs_per_example": macs_per_example,
         "neural_flops": 6 * macs_per_example * examples,
+        "auxiliary_scalar_ops": auxiliary_scalar_ops,
         "replay_per_update": args.replay_count,
-        "input_codec": "16x16 RGB, 4-bit, bilinear reconstruction, CRC32",
+        "insertions_per_update": args.insert_count,
+        "reservoir_seen": reservoir.seen,
+        "distill_weight": args.distill_weight,
+        "input_codec": "16x16 RGB 4-bit + 100 FP16 logits, bilinear reconstruction, CRC32",
         "wall_seconds": wall,
         "cpu_seconds": cpu,
         "rapl_joules": joules,
@@ -387,7 +441,11 @@ def run(args) -> dict:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--method", choices=("naive", "er", "dfc_sign_er"), required=True)
+    parser.add_argument(
+        "--method",
+        choices=("naive", "er", "dfc_sign_er", "derpp", "dfc_sign_derpp"),
+        required=True,
+    )
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--data", default="data")
     parser.add_argument("--output", type=Path, required=True)
@@ -397,14 +455,16 @@ def main():
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--updates-per-task", type=int, default=120)
     parser.add_argument("--replay-count", type=int, default=32)
+    parser.add_argument("--insert-count", type=int, default=4)
+    parser.add_argument("--distill-weight", type=float, default=0.3)
     parser.add_argument("--memory-bytes", type=int, default=32768)
     parser.add_argument("--lr", type=float, default=3e-3)
     parser.add_argument("--weight-decay", type=float, default=5e-4)
     args = parser.parse_args()
     report = run(args)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
-    print(json.dumps(report, indent=2, sort_keys=True))
+    args.output.write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n")
+    print(json.dumps(report, indent=2, sort_keys=True, allow_nan=False))
 
 
 if __name__ == "__main__":
