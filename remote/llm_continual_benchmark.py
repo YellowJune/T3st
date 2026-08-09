@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Full-FP32 DFC-Sign continual adaptation on Qwen2.5-0.5B.
+"""Full-FP32 DFC-Sign continual classification on Qwen2.5-0.5B.
 
-The benchmark trains q/v LoRA parameters with ordinary FP32 Adam moments.  A
-fixed-size token-and-dark-logit record is stored either in an actual external
-byte envelope or in that same envelope composed with the exact sign fiber of
-the Adam second moments.  Batch shape, updates, dense tokens, model, trainable
-parameters, optimizer tensors, and external physical bytes are identical.
+The benchmark trains FP32 LoRA parameters and a sequence-classification head
+with ordinary FP32 Adam moments.  A fixed-size token-and-dark-logit record is
+stored either in an actual external byte envelope or in that same envelope
+composed with the exact sign fiber of the Adam second moments.  Batch shape,
+updates, dense tokens, model, trainable parameters, optimizer tensors, and
+external physical bytes are identical.
 """
 
 from __future__ import annotations
@@ -34,18 +35,13 @@ from torch_fiber import DFCAdamW, TorchSignFiberChannel
 
 METHODS = ("sequential", "external_derpp", "dfc_sign_derpp")
 TASK_NAMES = ("orion", "cedar", "marble", "saffron")
-LABEL_WORDS = (
-    "red", "blue", "green", "black", "white", "gold", "silver", "amber",
-    "north", "south", "east", "west", "spring", "summer", "winter", "river",
-    "stone", "cloud", "light", "dark", "fire", "water", "earth", "wind",
-)
 TRAIN_TEMPLATES = (
-    "Codebook {domain}. {key} =",
-    "Lookup {domain} {key}:",
+    "Classify the {domain} code {key}.",
+    "Domain {domain}; item {key}; class:",
 )
 EVAL_TEMPLATES = (
-    "Codebook {domain}. {key} =",
-    "Lookup {domain} {key}:",
+    "Classify the {domain} code {key}.",
+    "Domain {domain}; item {key}; class:",
 )
 
 
@@ -83,7 +79,7 @@ class LLMRecordCodec:
     def encode(cls, example: Example) -> bytes:
         if len(example.input_ids) > cls.MAX_LENGTH:
             raise ValueError("token record exceeds fixed maximum length")
-        if not 0 < example.answer_index < len(example.input_ids):
+        if not 0 <= example.answer_index < len(example.input_ids):
             raise ValueError("invalid answer index")
         body = bytearray(cls.RECORD_BYTES)
         cls.HEADER.pack_into(body, 0, cls.MAGIC, cls.VERSION, example.task,
@@ -304,27 +300,14 @@ def adapter_digest(model: torch.nn.Module) -> str:
     return digest.hexdigest()
 
 
-def single_token_labels(tokenizer, count: int) -> tuple[list[str], list[int]]:
-    words, ids = [], []
-    for word in LABEL_WORDS:
-        encoded = tokenizer.encode(" " + word, add_special_tokens=False)
-        if len(encoded) == 1 and encoded[0] not in ids:
-            words.append(word)
-            ids.append(int(encoded[0]))
-        if len(ids) == count:
-            break
-    if len(ids) != count:
-        raise RuntimeError(f"tokenizer yielded only {len(ids)} one-token labels")
-    return words, ids
-
-
-def build_tasks(tokenizer, keys_per_task: int) -> tuple[list[list[Example]], list[list[Example]], dict]:
-    words, label_ids = single_token_labels(tokenizer, keys_per_task)
+def build_tasks(tokenizer, keys_per_task: int, num_labels: int) -> tuple[list[list[Example]], list[list[Example]], dict]:
+    if keys_per_task != num_labels:
+        raise ValueError("sealed classification protocol uses one key per class")
     train_tasks, eval_tasks = [], []
     mappings = {}
     for task_index, domain in enumerate(TASK_NAMES):
         rng = np.random.default_rng(10_000 + task_index)
-        permuted = list(np.asarray(label_ids)[rng.permutation(keys_per_task)])
+        permuted = list(np.arange(num_labels, dtype=np.int64)[rng.permutation(keys_per_task)])
         mappings[domain] = {f"K{key:02d}": int(permuted[key]) for key in range(keys_per_task)}
         train, evaluate = [], []
         for key_index in range(keys_per_task):
@@ -333,23 +316,23 @@ def build_tasks(tokenizer, keys_per_task: int) -> tuple[list[list[Example]], lis
             for template in TRAIN_TEMPLATES:
                 prompt = template.format(domain=domain, key=key)
                 prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
-                ids = tuple(int(value) for value in prompt_ids + [target_id])
+                ids = tuple(int(value) for value in prompt_ids)
                 if len(ids) > LLMRecordCodec.MAX_LENGTH:
                     raise RuntimeError("prompt exceeds fixed token length")
-                train.append(Example(task_index, ids, len(prompt_ids), target_id))
+                train.append(Example(task_index, ids, len(prompt_ids) - 1, target_id))
             for template in EVAL_TEMPLATES:
                 prompt = template.format(domain=domain, key=key)
                 prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
-                ids = tuple(int(value) for value in prompt_ids + [target_id])
+                ids = tuple(int(value) for value in prompt_ids)
                 if len(ids) > LLMRecordCodec.MAX_LENGTH:
                     raise RuntimeError("evaluation prompt exceeds fixed token length")
-                evaluate.append(Example(task_index, ids, len(prompt_ids), target_id))
+                evaluate.append(Example(task_index, ids, len(prompt_ids) - 1, target_id))
         train_tasks.append(train)
         eval_tasks.append(evaluate)
     mapping_bytes = json.dumps(mappings, sort_keys=True).encode()
     metadata = {
-        "label_words": words,
-        "label_token_ids": label_ids,
+        "num_labels": num_labels,
+        "label_ids": list(range(num_labels)),
         "mapping_sha256": sha256_bytes(mapping_bytes),
         "train_examples_per_task": len(train_tasks[0]),
         "evaluation_examples_per_task": len(eval_tasks[0]),
@@ -362,16 +345,13 @@ def pack_batch(examples: list[Example], pad_token_id: int, device: torch.device)
     inputs = torch.full((batch, LLMRecordCodec.MAX_LENGTH), pad_token_id,
                         dtype=torch.long, device=device)
     attention = torch.zeros_like(inputs)
-    answer_positions, targets = [], []
+    targets = []
     for index, example in enumerate(examples):
         length = len(example.input_ids)
         inputs[index, :length] = torch.tensor(example.input_ids, dtype=torch.long, device=device)
         attention[index, :length] = 1
-        answer_positions.append(example.answer_index - 1)
         targets.append(example.target_id)
-    return (inputs, attention,
-            torch.tensor(answer_positions, dtype=torch.long, device=device),
-            torch.tensor(targets, dtype=torch.long, device=device))
+    return inputs, attention, torch.tensor(targets, dtype=torch.long, device=device)
 
 
 @torch.no_grad()
@@ -384,10 +364,9 @@ def evaluate(model, tasks: list[list[Example]], learned: int, pad_token_id: int,
         examples = tasks[task_index]
         for start in range(0, len(examples), batch_size):
             batch = examples[start:start + batch_size]
-            inputs, attention, positions, targets = pack_batch(batch, pad_token_id, device)
-            logits = model(input_ids=inputs, attention_mask=attention, use_cache=False).logits
-            selected = logits[torch.arange(len(batch), device=device), positions]
-            nll_sum += float(F.cross_entropy(selected.float(), targets, reduction="sum"))
+            inputs, attention, targets = pack_batch(batch, pad_token_id, device)
+            selected = model(input_ids=inputs, attention_mask=attention, use_cache=False).logits.float()
+            nll_sum += float(F.cross_entropy(selected, targets, reduction="sum"))
             correct += int((selected.argmax(dim=-1) == targets).sum())
             count += len(batch)
         accuracies.append(correct / count)
@@ -461,19 +440,28 @@ def run(args) -> dict:
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     device = torch.device(args.device)
     tokenizer = AutoTokenizer.from_pretrained(args.model, revision=args.revision,
                                               trust_remote_code=False)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(
+    model = AutoModelForSequenceClassification.from_pretrained(
         args.model, revision=args.revision, torch_dtype=torch.float32,
         trust_remote_code=False, attn_implementation="eager",
+        num_labels=args.num_labels, ignore_mismatched_sizes=True,
     ).to(device)
     model.config.use_cache = False
+    model.config.pad_token_id = tokenizer.pad_token_id
     targets = inject_lora(model, args.rank, args.alpha)
+    classifier_names = []
+    for name, parameter in model.named_parameters():
+        if name.startswith("score.") or name.startswith("classifier."):
+            parameter.requires_grad_(True)
+            classifier_names.append(name)
+    if not classifier_names:
+        raise RuntimeError("sequence-classification head was not found")
     trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
     trainable_count = sum(parameter.numel() for parameter in trainable)
     optimizer = DFCAdamW(trainable, lr=args.learning_rate, betas=(0.9, 0.999),
@@ -481,7 +469,9 @@ def run(args) -> dict:
                          enable_fiber=args.method == "dfc_sign_derpp")
     external = bytearray(args.external_bytes)
     reservoir = rebuild_reservoir(args.method, external, optimizer, initialize=True)
-    train_tasks, eval_tasks, dataset_metadata = build_tasks(tokenizer, args.keys_per_task)
+    train_tasks, eval_tasks, dataset_metadata = build_tasks(
+        tokenizer, args.keys_per_task, args.num_labels
+    )
     current_rng = np.random.default_rng(args.seed + 10_001)
     replay_rng = np.random.default_rng(args.seed + 20_003)
     reservoir_rng = np.random.default_rng(args.seed + 30_007)
@@ -504,12 +494,13 @@ def run(args) -> dict:
             else:
                 batch.append(train_tasks[task_index][int(current_rng.integers(
                     0, len(train_tasks[task_index])))])
-            inputs, attention, positions, target_ids = pack_batch(
+            inputs, attention, target_ids = pack_batch(
                 batch, tokenizer.pad_token_id, device
             )
             optimizer.zero_grad(set_to_none=True)
-            logits = model(input_ids=inputs, attention_mask=attention, use_cache=False).logits
-            selected = logits[torch.arange(args.batch_size, device=device), positions].float()
+            selected = model(
+                input_ids=inputs, attention_mask=attention, use_cache=False
+            ).logits.float()
             loss = F.cross_entropy(selected, target_ids)
             if replay_example is not None:
                 top_ids = torch.tensor(replay_example.top_ids, dtype=torch.long, device=device)
@@ -558,19 +549,22 @@ def run(args) -> dict:
     total_model_parameters = sum(parameter.numel() for parameter in model.parameters())
     counted_flops = 6 * total_model_parameters * dense_tokens
     payload = {
-        "schema": "dfc-qwen-continual-v1",
+        "schema": "dfc-qwen-continual-v2",
         "method": args.method,
         "seed": args.seed,
         "model": args.model,
         "requested_revision": args.revision,
         "resolved_revision": getattr(model.config, "_commit_hash", None) or args.revision,
         "tokenizer_class": tokenizer.__class__.__name__,
+        "model_class": model.__class__.__name__,
+        "adaptation_head": "sequence_classification",
         "task_names": list(TASK_NAMES),
         "dataset": dataset_metadata,
         "lora": {
             "rank": args.rank,
             "alpha": args.alpha,
             "target_modules": targets,
+            "classifier_parameters": classifier_names,
             "trainable_parameters": trainable_count,
         },
         "protocol": {
@@ -636,10 +630,11 @@ def main() -> None:
     parser.add_argument("--rank", type=int, default=8)
     parser.add_argument("--alpha", type=float, default=16.0)
     parser.add_argument("--keys-per-task", type=int, default=4)
-    parser.add_argument("--updates-per-task", type=int, default=64)
+    parser.add_argument("--num-labels", type=int, default=4, choices=[4])
+    parser.add_argument("--updates-per-task", type=int, default=128)
     parser.add_argument("--batch-size", type=int, default=2, choices=[2])
     parser.add_argument("--external-bytes", type=int, default=2048)
-    parser.add_argument("--learning-rate", type=float, default=1e-2)
+    parser.add_argument("--learning-rate", type=float, default=3e-3)
     parser.add_argument("--weight-decay", type=float, default=0.0)
     parser.add_argument("--distill-weight", type=float, default=0.1)
     parser.add_argument("--max-grad-norm", type=float, default=1.0)
