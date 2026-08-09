@@ -36,13 +36,14 @@ from torch_fiber import DFCAdamW, TorchSignFiberChannel
 METHODS = ("sequential", "external_derpp", "dfc_sign_derpp")
 TASK_NAMES = ("orion", "cedar", "marble", "saffron")
 TRAIN_TEMPLATES = (
-    "Classify the {domain} code {key}.",
-    "Domain {domain}; item {key}; class:",
+    "In the {domain} taxonomy, classify the concept {key}.",
+    "Domain {domain}; semantic item {key}; category:",
 )
 EVAL_TEMPLATES = (
-    "Classify the {domain} code {key}.",
-    "Domain {domain}; item {key}; class:",
+    "In the {domain} taxonomy, classify the concept {key}.",
+    "Domain {domain}; semantic item {key}; category:",
 )
+KEY_NAMES = ("apple", "river", "mountain", "violin")
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -262,6 +263,31 @@ class LoRALinear(torch.nn.Module):
         return base + update.to(base.dtype)
 
 
+class QwenContinualClassifier(torch.nn.Module):
+    """Masked-mean Qwen representation with an ordinary FP32 MLP head."""
+
+    def __init__(self, base_model: torch.nn.Module, hidden_size: int,
+                 head_width: int, num_labels: int):
+        super().__init__()
+        self.base_model = base_model
+        self.config = base_model.config
+        self.classifier = torch.nn.Sequential(
+            torch.nn.LayerNorm(hidden_size, dtype=torch.float32),
+            torch.nn.Linear(hidden_size, head_width, dtype=torch.float32),
+            torch.nn.GELU(),
+            torch.nn.Linear(head_width, num_labels, dtype=torch.float32),
+        )
+
+    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor,
+                use_cache: bool = False) -> torch.Tensor:
+        hidden = self.base_model(
+            input_ids=input_ids, attention_mask=attention_mask, use_cache=use_cache
+        ).last_hidden_state.float()
+        mask = attention_mask.unsqueeze(-1).to(hidden.dtype)
+        pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1.0)
+        return self.classifier(pooled)
+
+
 def inject_lora(model: torch.nn.Module, rank: int, alpha: float) -> list[str]:
     for parameter in model.parameters():
         parameter.requires_grad_(False)
@@ -281,7 +307,7 @@ def inject_lora(model: torch.nn.Module, rank: int, alpha: float) -> list[str]:
         setattr(parent, child_name, LoRALinear(module, rank, alpha))
         targets.append(name)
     if not targets:
-        raise RuntimeError("no Qwen q/v projection modules were replaced")
+        raise RuntimeError("no Qwen projection modules were replaced")
     return targets
 
 
@@ -303,15 +329,17 @@ def adapter_digest(model: torch.nn.Module) -> str:
 def build_tasks(tokenizer, keys_per_task: int, num_labels: int) -> tuple[list[list[Example]], list[list[Example]], dict]:
     if keys_per_task != num_labels:
         raise ValueError("sealed classification protocol uses one key per class")
+    if keys_per_task != len(KEY_NAMES):
+        raise ValueError("sealed classification protocol requires four semantic keys")
     train_tasks, eval_tasks = [], []
     mappings = {}
     for task_index, domain in enumerate(TASK_NAMES):
         rng = np.random.default_rng(10_000 + task_index)
         permuted = list(np.arange(num_labels, dtype=np.int64)[rng.permutation(keys_per_task)])
-        mappings[domain] = {f"K{key:02d}": int(permuted[key]) for key in range(keys_per_task)}
+        mappings[domain] = {KEY_NAMES[key]: int(permuted[key]) for key in range(keys_per_task)}
         train, evaluate = [], []
         for key_index in range(keys_per_task):
-            key = f"K{key_index:02d}"
+            key = KEY_NAMES[key_index]
             target_id = int(permuted[key_index])
             for template in TRAIN_TEMPLATES:
                 prompt = template.format(domain=domain, key=key)
@@ -333,6 +361,7 @@ def build_tasks(tokenizer, keys_per_task: int, num_labels: int) -> tuple[list[li
     metadata = {
         "num_labels": num_labels,
         "label_ids": list(range(num_labels)),
+        "semantic_keys": list(KEY_NAMES),
         "mapping_sha256": sha256_bytes(mapping_bytes),
         "train_examples_per_task": len(train_tasks[0]),
         "evaluation_examples_per_task": len(eval_tasks[0]),
@@ -365,7 +394,7 @@ def evaluate(model, tasks: list[list[Example]], learned: int, pad_token_id: int,
         for start in range(0, len(examples), batch_size):
             batch = examples[start:start + batch_size]
             inputs, attention, targets = pack_batch(batch, pad_token_id, device)
-            selected = model(input_ids=inputs, attention_mask=attention, use_cache=False).logits.float()
+            selected = model(input_ids=inputs, attention_mask=attention, use_cache=False).float()
             nll_sum += float(F.cross_entropy(selected, targets, reduction="sum"))
             correct += int((selected.argmax(dim=-1) == targets).sum())
             count += len(batch)
@@ -440,31 +469,46 @@ def run(args) -> dict:
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    from transformers import AutoModel, AutoTokenizer
 
     device = torch.device(args.device)
     tokenizer = AutoTokenizer.from_pretrained(args.model, revision=args.revision,
                                               trust_remote_code=False)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForSequenceClassification.from_pretrained(
+    base_model = AutoModel.from_pretrained(
         args.model, revision=args.revision, torch_dtype=torch.float32,
         trust_remote_code=False, attn_implementation="eager",
-        num_labels=args.num_labels, ignore_mismatched_sizes=True,
+    )
+    model = QwenContinualClassifier(
+        base_model, int(base_model.config.hidden_size), args.head_width, args.num_labels
     ).to(device)
     model.config.use_cache = False
     model.config.pad_token_id = tokenizer.pad_token_id
     targets = inject_lora(model, args.rank, args.alpha)
     classifier_names = []
     for name, parameter in model.named_parameters():
-        if name.startswith("score.") or name.startswith("classifier."):
+        if name.startswith("classifier."):
             parameter.requires_grad_(True)
             classifier_names.append(name)
     if not classifier_names:
         raise RuntimeError("sequence-classification head was not found")
-    trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
+    named_trainable = [
+        (name, parameter) for name, parameter in model.named_parameters()
+        if parameter.requires_grad
+    ]
+    trainable = [parameter for _, parameter in named_trainable]
     trainable_count = sum(parameter.numel() for parameter in trainable)
-    optimizer = DFCAdamW(trainable, lr=args.learning_rate, betas=(0.9, 0.999),
+    head_parameters = [parameter for name, parameter in named_trainable
+                       if name.startswith("classifier.")]
+    lora_parameters = [parameter for name, parameter in named_trainable
+                       if not name.startswith("classifier.")]
+    if not head_parameters or not lora_parameters:
+        raise RuntimeError("sealed parameter groups are incomplete")
+    optimizer = DFCAdamW([
+        {"params": lora_parameters, "lr": args.learning_rate},
+        {"params": head_parameters, "lr": args.classifier_learning_rate},
+    ], lr=args.learning_rate, betas=(0.9, 0.999),
                          eps=1e-8, weight_decay=args.weight_decay,
                          enable_fiber=args.method == "dfc_sign_derpp")
     external = bytearray(args.external_bytes)
@@ -500,7 +544,7 @@ def run(args) -> dict:
             optimizer.zero_grad(set_to_none=True)
             selected = model(
                 input_ids=inputs, attention_mask=attention, use_cache=False
-            ).logits.float()
+            ).float()
             loss = F.cross_entropy(selected, target_ids)
             if replay_example is not None:
                 top_ids = torch.tensor(replay_example.top_ids, dtype=torch.long, device=device)
@@ -549,7 +593,7 @@ def run(args) -> dict:
     total_model_parameters = sum(parameter.numel() for parameter in model.parameters())
     counted_flops = 6 * total_model_parameters * dense_tokens
     payload = {
-        "schema": "dfc-qwen-continual-v2",
+        "schema": "dfc-qwen-continual-v3",
         "method": args.method,
         "seed": args.seed,
         "model": args.model,
@@ -557,12 +601,13 @@ def run(args) -> dict:
         "resolved_revision": getattr(model.config, "_commit_hash", None) or args.revision,
         "tokenizer_class": tokenizer.__class__.__name__,
         "model_class": model.__class__.__name__,
-        "adaptation_head": "sequence_classification",
+        "adaptation_head": "masked_mean_mlp_sequence_classification",
         "task_names": list(TASK_NAMES),
         "dataset": dataset_metadata,
         "lora": {
             "rank": args.rank,
             "alpha": args.alpha,
+            "head_width": args.head_width,
             "target_modules": targets,
             "classifier_parameters": classifier_names,
             "trainable_parameters": trainable_count,
@@ -579,6 +624,7 @@ def run(args) -> dict:
             "dense_tokens": dense_tokens,
             "counted_dense_neural_flops": counted_flops,
             "learning_rate": args.learning_rate,
+            "classifier_learning_rate": args.classifier_learning_rate,
             "weight_decay": args.weight_decay,
             "distill_weight": args.distill_weight,
         },
@@ -631,13 +677,15 @@ def main() -> None:
     parser.add_argument("--alpha", type=float, default=16.0)
     parser.add_argument("--keys-per-task", type=int, default=4)
     parser.add_argument("--num-labels", type=int, default=4, choices=[4])
+    parser.add_argument("--head-width", type=int, default=256)
     parser.add_argument("--updates-per-task", type=int, default=128)
     parser.add_argument("--batch-size", type=int, default=2, choices=[2])
     parser.add_argument("--external-bytes", type=int, default=2048)
     parser.add_argument("--learning-rate", type=float, default=3e-3)
+    parser.add_argument("--classifier-learning-rate", type=float, default=1e-2)
     parser.add_argument("--weight-decay", type=float, default=0.0)
     parser.add_argument("--distill-weight", type=float, default=0.1)
-    parser.add_argument("--max-grad-norm", type=float, default=1.0)
+    parser.add_argument("--max-grad-norm", type=float, default=5.0)
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--output", type=Path, required=True)
