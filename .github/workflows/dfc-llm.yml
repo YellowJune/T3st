@@ -37,6 +37,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -54,6 +55,16 @@ jobs:
           name: qwen-model-revision
           path: model_revision.txt
           if-no-files-found: error
+      - name: Persist run identifier before learning
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          mkdir -p remote/run_manifests
+          cp model_revision.txt "remote/run_manifests/qwen_cls_${GITHUB_RUN_ID}.txt"
+          git checkout -b "result-${GITHUB_RUN_ID}-qwen-cls-manifest"
+          git add -f remote/run_manifests/
+          git commit -m "Qwen classification run manifest ${GITHUB_RUN_ID}"
+          git push origin HEAD
 
   qwen-acquisition-pilot:
     needs: [exactness, model-manifest]
@@ -94,15 +105,6 @@ jobs:
             --distill-weight 0.1 \
             --threads 4 \
             --output llm_results/qwen_sequential_seed967.json
-          python - <<'PY'
-          import json
-          row = json.load(open("llm_results/qwen_sequential_seed967.json"))
-          diagonal = [row["accuracy_matrix"][i][i] for i in range(4)]
-          assert row["adaptation_head"] == "sequence_classification"
-          assert min(diagonal) >= 0.75, diagonal
-          assert sum(diagonal) / len(diagonal) >= 0.90, diagonal
-          print("acquisition gate passed", diagonal)
-          PY
           sha256sum llm_results/*.json > llm_results/SHA256SUMS.txt
           python -m pip freeze > llm_results/environment_seed967.txt
       - uses: actions/upload-artifact@v4
@@ -119,3 +121,15 @@ jobs:
           git add -f llm_results/
           git commit -m "Qwen classification acquisition pilot 967"
           git push origin HEAD
+      - name: Enforce acquisition gate after evidence persistence
+        working-directory: remote
+        run: |
+          python - <<'PY'
+          import json
+          row = json.load(open("llm_results/qwen_sequential_seed967.json"))
+          diagonal = [row["accuracy_matrix"][i][i] for i in range(4)]
+          assert row["adaptation_head"] == "sequence_classification"
+          assert min(diagonal) >= 0.75, diagonal
+          assert sum(diagonal) / len(diagonal) >= 0.90, diagonal
+          print("acquisition gate passed", diagonal)
+          PY
