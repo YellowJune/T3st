@@ -44,7 +44,7 @@ if triton is not None:
         m = tl.load(first_moment + offsets, mask=mask).to(tl.float32)
         v_physical = tl.load(physical_second_moment + offsets, mask=mask).to(tl.float32)
         v_bits = v_physical.to(tl.int32, bitcast=True)
-        payload = v_bits & 0x80000000
+        payload = v_bits & -2147483648
         magnitude_bits = v_bits & 0x7FFFFFFF
         v = magnitude_bits.to(tl.float32, bitcast=True)
 
