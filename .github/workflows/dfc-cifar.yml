@@ -4,9 +4,6 @@ on:
   push:
     paths:
       - "remote/RUN_PROTOCOL.md"
-  pull_request:
-    paths:
-      - "remote/RUN_PROTOCOL.md"
   workflow_dispatch:
 
 permissions:
