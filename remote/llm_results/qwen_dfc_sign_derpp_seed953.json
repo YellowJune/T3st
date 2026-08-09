@@ -1,0 +1,273 @@
+{
+  "accuracy_matrix": [
+    [
+      0.0,
+      null,
+      null,
+      null
+    ],
+    [
+      0.25,
+      0.25,
+      null,
+      null
+    ],
+    [
+      0.25,
+      0.25,
+      0.25,
+      null
+    ],
+    [
+      0.25,
+      0.25,
+      0.25,
+      0.25
+    ]
+  ],
+  "checkpoint_gate": {
+    "bytes": 24059519,
+    "passed": true,
+    "payload_sha256": "5f7b2d9b58510d018be074629f434206e4679c0501de87c915c2dfa5622b0674"
+  },
+  "dataset": {
+    "evaluation_examples_per_task": 8,
+    "label_token_ids": [
+      2518,
+      6303,
+      6176,
+      3691
+    ],
+    "label_words": [
+      "red",
+      "blue",
+      "green",
+      "black"
+    ],
+    "mapping_sha256": "3a03d702870d92f75e3503405b6d5a70d8e5c7f0488184598b7126c5f0e134fb",
+    "train_examples_per_task": 8
+  },
+  "digests": {
+    "adapter_sha256": "6e9805323a147a6cef1f1063e5d565a7217ace506656adc266ecec6092783963",
+    "final_payload_sha256": "f0bb413bd8d33d57dccb88ea605f3f26e2b3ddd1e332589904fca674fe76353b",
+    "optimizer_source_sha256": "9c623448806900698d801a60e8a1c1cbe47e4ae24f1293bf0d8d58fdef1c7905",
+    "source_sha256": "000c78582c9bf5c9625748d7a55d05457c801814c9b3ad9ec60c1a2876f0263f"
+  },
+  "environment": {
+    "device": "cpu",
+    "github_run_id": "31299088264",
+    "github_sha": "7f63b2402d389238d09b630ff73a0863a993446d",
+    "platform": "Linux-6.17.0-1020-azure-x86_64-with-glibc2.39",
+    "python": "3.12.13",
+    "threads": 4,
+    "torch": "2.13.0+cpu",
+    "transformers": "4.53.2"
+  },
+  "lora": {
+    "alpha": 16.0,
+    "rank": 8,
+    "target_modules": [
+      "model.layers.0.self_attn.q_proj",
+      "model.layers.0.self_attn.v_proj",
+      "model.layers.0.self_attn.o_proj",
+      "model.layers.0.mlp.down_proj",
+      "model.layers.1.self_attn.q_proj",
+      "model.layers.1.self_attn.v_proj",
+      "model.layers.1.self_attn.o_proj",
+      "model.layers.1.mlp.down_proj",
+      "model.layers.2.self_attn.q_proj",
+      "model.layers.2.self_attn.v_proj",
+      "model.layers.2.self_attn.o_proj",
+      "model.layers.2.mlp.down_proj",
+      "model.layers.3.self_attn.q_proj",
+      "model.layers.3.self_attn.v_proj",
+      "model.layers.3.self_attn.o_proj",
+      "model.layers.3.mlp.down_proj",
+      "model.layers.4.self_attn.q_proj",
+      "model.layers.4.self_attn.v_proj",
+      "model.layers.4.self_attn.o_proj",
+      "model.layers.4.mlp.down_proj",
+      "model.layers.5.self_attn.q_proj",
+      "model.layers.5.self_attn.v_proj",
+      "model.layers.5.self_attn.o_proj",
+      "model.layers.5.mlp.down_proj",
+      "model.layers.6.self_attn.q_proj",
+      "model.layers.6.self_attn.v_proj",
+      "model.layers.6.self_attn.o_proj",
+      "model.layers.6.mlp.down_proj",
+      "model.layers.7.self_attn.q_proj",
+      "model.layers.7.self_attn.v_proj",
+      "model.layers.7.self_attn.o_proj",
+      "model.layers.7.mlp.down_proj",
+      "model.layers.8.self_attn.q_proj",
+      "model.layers.8.self_attn.v_proj",
+      "model.layers.8.self_attn.o_proj",
+      "model.layers.8.mlp.down_proj",
+      "model.layers.9.self_attn.q_proj",
+      "model.layers.9.self_attn.v_proj",
+      "model.layers.9.self_attn.o_proj",
+      "model.layers.9.mlp.down_proj",
+      "model.layers.10.self_attn.q_proj",
+      "model.layers.10.self_attn.v_proj",
+      "model.layers.10.self_attn.o_proj",
+      "model.layers.10.mlp.down_proj",
+      "model.layers.11.self_attn.q_proj",
+      "model.layers.11.self_attn.v_proj",
+      "model.layers.11.self_attn.o_proj",
+      "model.layers.11.mlp.down_proj",
+      "model.layers.12.self_attn.q_proj",
+      "model.layers.12.self_attn.v_proj",
+      "model.layers.12.self_attn.o_proj",
+      "model.layers.12.mlp.down_proj",
+      "model.layers.13.self_attn.q_proj",
+      "model.layers.13.self_attn.v_proj",
+      "model.layers.13.self_attn.o_proj",
+      "model.layers.13.mlp.down_proj",
+      "model.layers.14.self_attn.q_proj",
+      "model.layers.14.self_attn.v_proj",
+      "model.layers.14.self_attn.o_proj",
+      "model.layers.14.mlp.down_proj",
+      "model.layers.15.self_attn.q_proj",
+      "model.layers.15.self_attn.v_proj",
+      "model.layers.15.self_attn.o_proj",
+      "model.layers.15.mlp.down_proj",
+      "model.layers.16.self_attn.q_proj",
+      "model.layers.16.self_attn.v_proj",
+      "model.layers.16.self_attn.o_proj",
+      "model.layers.16.mlp.down_proj",
+      "model.layers.17.self_attn.q_proj",
+      "model.layers.17.self_attn.v_proj",
+      "model.layers.17.self_attn.o_proj",
+      "model.layers.17.mlp.down_proj",
+      "model.layers.18.self_attn.q_proj",
+      "model.layers.18.self_attn.v_proj",
+      "model.layers.18.self_attn.o_proj",
+      "model.layers.18.mlp.down_proj",
+      "model.layers.19.self_attn.q_proj",
+      "model.layers.19.self_attn.v_proj",
+      "model.layers.19.self_attn.o_proj",
+      "model.layers.19.mlp.down_proj",
+      "model.layers.20.self_attn.q_proj",
+      "model.layers.20.self_attn.v_proj",
+      "model.layers.20.self_attn.o_proj",
+      "model.layers.20.mlp.down_proj",
+      "model.layers.21.self_attn.q_proj",
+      "model.layers.21.self_attn.v_proj",
+      "model.layers.21.self_attn.o_proj",
+      "model.layers.21.mlp.down_proj",
+      "model.layers.22.self_attn.q_proj",
+      "model.layers.22.self_attn.v_proj",
+      "model.layers.22.self_attn.o_proj",
+      "model.layers.22.mlp.down_proj",
+      "model.layers.23.self_attn.q_proj",
+      "model.layers.23.self_attn.v_proj",
+      "model.layers.23.self_attn.o_proj",
+      "model.layers.23.mlp.down_proj"
+    ],
+    "trainable_parameters": 1990656
+  },
+  "method": "dfc_sign_derpp",
+  "metrics": {
+    "average_forgetting": 0.0,
+    "average_nll_forgetting": 0.0653607447942098,
+    "current_task_accuracy": 0.25,
+    "final_average_accuracy": 0.25,
+    "final_average_nll": 1.7180688977241516,
+    "mean_learning_accuracy": 0.1875
+  },
+  "model": "Qwen/Qwen2.5-0.5B",
+  "nll_matrix": [
+    [
+      57.990478515625,
+      null,
+      null,
+      null
+    ],
+    [
+      1.6206634044647217,
+      1.6205260753631592,
+      null,
+      null
+    ],
+    [
+      2.645599842071533,
+      2.645812511444092,
+      2.645719051361084,
+      null
+    ],
+    [
+      1.7174537181854248,
+      1.7198179960250854,
+      1.7175281047821045,
+      1.7174757719039917
+    ]
+  ],
+  "payload_boundaries": [
+    {
+      "count": 64,
+      "seen": 64,
+      "sha256": "a3fb71e6ac3ee22297295a2e191e338e7e323bdb0eabb22780569f2054fcf243",
+      "task": 0
+    },
+    {
+      "count": 128,
+      "seen": 128,
+      "sha256": "5f7b2d9b58510d018be074629f434206e4679c0501de87c915c2dfa5622b0674",
+      "task": 1
+    },
+    {
+      "count": 192,
+      "seen": 192,
+      "sha256": "e65ea5b42d7df5d2d8e6006544f20c9fdf41dddb7aba01c8576e010a2b80b1ba",
+      "task": 2
+    },
+    {
+      "count": 256,
+      "seen": 256,
+      "sha256": "f0bb413bd8d33d57dccb88ea605f3f26e2b3ddd1e332589904fca674fe76353b",
+      "task": 3
+    }
+  ],
+  "protocol": {
+    "batch_size": 2,
+    "counted_dense_neural_flops": 73141630009344,
+    "current_per_update": 1,
+    "dense_tokens": 24576,
+    "distill_weight": 0.1,
+    "keys_per_task": 4,
+    "learning_rate": 0.01,
+    "maximum_length": 48,
+    "replay_per_update": 1,
+    "tasks": 4,
+    "total_updates": 256,
+    "updates_per_task": 64,
+    "weight_decay": 0.0
+  },
+  "requested_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "resolved_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "resources": {
+    "common_persistent_bytes": 2000020992,
+    "external_allocated_bytes": 2048,
+    "final_record_count": 256,
+    "internal_sign_fiber_bytes": 248832,
+    "logical_replay_bytes": 250880,
+    "model_physical_bytes": 1984093696,
+    "optimizer_state_physical_bytes": 15925248,
+    "record_bytes": 256,
+    "record_capacity": 979
+  },
+  "result_sha256": "b289a612b7f9b212e5e0605a2bba86815ab8790896279c6e08247f85ee478a5f",
+  "runtime": {
+    "cpu_seconds_energy_proxy": 1825.811133913,
+    "wall_seconds": 495.0369202879999
+  },
+  "schema": "dfc-qwen-continual-v1",
+  "seed": 953,
+  "task_names": [
+    "orion",
+    "cedar",
+    "marble",
+    "saffron"
+  ],
+  "tokenizer_class": "Qwen2TokenizerFast"
+}
