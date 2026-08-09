@@ -15,6 +15,7 @@ import zlib
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch import nn
 from torch.utils.data import DataLoader, Subset
 from torchvision.datasets import CIFAR100
@@ -73,30 +74,45 @@ class CompositeChannel:
 
 class CIFAR4BitCodec:
     MAGIC = b"CF4B"
-    RECORD_BYTES = 1552
+    SIDE = 16
+    RECORD_BYTES = 400
 
     @classmethod
     def encode(cls, x: torch.Tensor, y: int, task: int) -> bytes:
-        q = torch.clamp(torch.round(x.detach().cpu().reshape(-1) * 15.0), 0, 15).to(torch.uint8).numpy()
+        small = F.interpolate(
+            x.detach().cpu().unsqueeze(0), size=(cls.SIDE, cls.SIDE),
+            mode="bilinear", align_corners=False,
+        ).squeeze(0)
+        q = torch.clamp(torch.round(small.reshape(-1) * 15.0), 0, 15).to(torch.uint8).numpy()
         packed = q[0::2] | (q[1::2] << np.uint8(4))
         raw = bytearray(cls.RECORD_BYTES)
         raw[:4] = cls.MAGIC
         raw[4:6] = int(y).to_bytes(2, "little")
         raw[6:8] = int(task).to_bytes(2, "little")
-        raw[8:1544] = packed.tobytes()
-        raw[1544:1548] = (zlib.crc32(raw[:1544]) & 0xFFFFFFFF).to_bytes(4, "little")
+        payload_end = 8 + packed.size
+        raw[8:payload_end] = packed.tobytes()
+        raw[payload_end : payload_end + 4] = (
+            zlib.crc32(raw[:payload_end]) & 0xFFFFFFFF
+        ).to_bytes(4, "little")
         return bytes(raw)
 
     @classmethod
     def decode(cls, raw: bytes) -> tuple[torch.Tensor, int, int]:
         if len(raw) != cls.RECORD_BYTES or raw[:4] != cls.MAGIC:
             raise RuntimeError("invalid CIFAR replay record")
-        if zlib.crc32(raw[:1544]) & 0xFFFFFFFF != int.from_bytes(raw[1544:1548], "little"):
+        packed_bytes = 3 * cls.SIDE * cls.SIDE // 2
+        payload_end = 8 + packed_bytes
+        if zlib.crc32(raw[:payload_end]) & 0xFFFFFFFF != int.from_bytes(
+            raw[payload_end : payload_end + 4], "little"
+        ):
             raise RuntimeError("CIFAR replay checksum mismatch")
-        packed = np.frombuffer(raw[8:1544], dtype=np.uint8)
-        q = np.empty(3072, dtype=np.uint8)
+        packed = np.frombuffer(raw[8:payload_end], dtype=np.uint8)
+        q = np.empty(3 * cls.SIDE * cls.SIDE, dtype=np.uint8)
         q[0::2], q[1::2] = packed & 15, packed >> 4
-        x = torch.from_numpy(q.astype(np.float32).reshape(3, 32, 32) / 15.0)
+        small = torch.from_numpy(q.astype(np.float32).reshape(3, cls.SIDE, cls.SIDE) / 15.0)
+        x = F.interpolate(
+            small.unsqueeze(0), size=(32, 32), mode="bilinear", align_corners=False
+        ).squeeze(0)
         return x, int.from_bytes(raw[4:6], "little"), int.from_bytes(raw[6:8], "little")
 
 
@@ -187,10 +203,40 @@ class CifarResNet(nn.Module):
                 stages.append(BasicBlock(channels, output))
         self.stages = nn.Sequential(*stages)
         self.head = nn.Linear(channels, classes)
+        self.register_buffer("input_mean", torch.tensor((0.5071, 0.4867, 0.4408)).view(1, 3, 1, 1))
+        self.register_buffer("input_std", torch.tensor((0.2675, 0.2565, 0.2761)).view(1, 3, 1, 1))
 
     def forward(self, x):
+        x = (x - self.input_mean) / self.input_std
         x = self.stages(self.stem(x))
         return self.head(torch.mean(x, dim=(2, 3)))
+
+
+@torch.no_grad()
+def dense_macs_per_example(model: nn.Module) -> int:
+    """Count convolution/linear MACs for the fixed 32x32 model shape."""
+    total = 0
+    hooks = []
+
+    def hook(module, inputs, output):
+        nonlocal total
+        if isinstance(module, nn.Conv2d):
+            per_output = module.in_channels // module.groups
+            per_output *= module.kernel_size[0] * module.kernel_size[1]
+            total += int(output[0].numel()) * per_output
+        elif isinstance(module, nn.Linear):
+            total += module.in_features * module.out_features
+
+    for module in model.modules():
+        if isinstance(module, (nn.Conv2d, nn.Linear)):
+            hooks.append(module.register_forward_hook(hook))
+    training = model.training
+    model.eval()
+    model(torch.zeros(1, 3, 32, 32, device=next(model.parameters()).device))
+    model.train(training)
+    for handle in hooks:
+        handle.remove()
+    return total
 
 
 class RaplMeter:
@@ -236,6 +282,7 @@ def run(args) -> dict:
     ]
 
     model = CifarResNet(width=args.width).to(device)
+    macs_per_example = dense_macs_per_example(model)
     optimizer = DFCAdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay,
         enable_fiber=args.method == "dfc_sign_er"
@@ -251,7 +298,8 @@ def run(args) -> dict:
         channel, internal_bytes = ArrayChannel(0), 0
     reservoir = FiberReservoir(channel)
     loss_fn = nn.CrossEntropyLoss()
-    rng = np.random.default_rng(args.seed + 900_001)
+    replay_rng = np.random.default_rng(args.seed + 900_001)
+    reservoir_rng = np.random.default_rng(args.seed + 1_900_001)
     matrix = np.full((10, 10), np.nan, dtype=np.float64)
     meter = RaplMeter()
     meter.start()
@@ -272,24 +320,27 @@ def run(args) -> dict:
             except StopIteration:
                 iterator = iter(loader)
                 x, y = next(iterator)
-            n_replay = args.batch_size // 4 if reservoir.size else 0
+            n_replay = min(args.replay_count, args.batch_size - 1) if reservoir.size else 0
             if n_replay:
-                x_old, y_old = reservoir.sample(n_replay, rng)
+                x_old, y_old = reservoir.sample(n_replay, replay_rng)
                 x = torch.cat([x[: args.batch_size - n_replay], x_old], 0)
                 y = torch.cat([y[: args.batch_size - n_replay], y_old], 0)
             else:
                 x, y = x[: args.batch_size], y[: args.batch_size]
             optimizer.zero_grad(set_to_none=True)
-            loss = loss_fn(model(x.to(device)), y.to(device))
+            # Class-incremental single-head training; unseen classes are masked,
+            # while all classes observed so far compete in the same softmax.
+            seen_classes = 10 * (task_index + 1)
+            loss = loss_fn(model(x.to(device))[:, :seen_classes], y.to(device))
             loss.backward()
             optimizer.step()
             updates += 1
             examples += args.batch_size
 
-        insertion_order = rng.permutation(indices)
+        insertion_order = reservoir_rng.permutation(indices)
         for index in insertion_order:
             x, y = train[int(index)]
-            reservoir.add(x, int(y), task_index, rng)
+            reservoir.add(x, int(y), task_index, reservoir_rng)
         for old_task in range(task_index + 1):
             matrix[task_index, old_task] = evaluate(model, test_tasks[old_task], device)
 
@@ -306,16 +357,24 @@ def run(args) -> dict:
         "model": f"CifarResNet-width{args.width}-blocks2",
         "final_average_accuracy": float(np.mean(final)),
         "average_forgetting": float(forgetting),
+        "current_task_accuracy": float(matrix[-1, -1]),
+        "mean_learning_accuracy": float(np.mean(np.diag(matrix))),
         "accuracy_matrix": matrix.tolist(),
         "accuracy_sha256": hashlib.sha256(matrix.tobytes()).hexdigest(),
-        "external_bytes": args.memory_bytes if args.method != "naive" else 0,
+        "external_bytes": args.memory_bytes,
         "internal_fiber_bytes": internal_bytes,
+        "base_persistent_bytes": 12 * parameter_count,
+        "common_envelope_bytes": 12 * parameter_count + args.memory_bytes,
         "replay_capacity": reservoir.capacity,
         "replay_size": reservoir.size,
         "record_bytes": CIFAR4BitCodec.RECORD_BYTES,
         "batch_size": args.batch_size,
         "updates": updates,
         "examples_processed": examples,
+        "dense_macs_per_example": macs_per_example,
+        "neural_flops": 6 * macs_per_example * examples,
+        "replay_per_update": args.replay_count,
+        "input_codec": "16x16 RGB, 4-bit, bilinear reconstruction, CRC32",
         "wall_seconds": wall,
         "cpu_seconds": cpu,
         "rapl_joules": joules,
@@ -337,6 +396,7 @@ def main():
     parser.add_argument("--width", type=int, default=32)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--updates-per-task", type=int, default=120)
+    parser.add_argument("--replay-count", type=int, default=32)
     parser.add_argument("--memory-bytes", type=int, default=32768)
     parser.add_argument("--lr", type=float, default=3e-3)
     parser.add_argument("--weight-decay", type=float, default=5e-4)
