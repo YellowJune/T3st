@@ -1,0 +1,1 @@
+8be8853df7771ed7aba8a7e4510fdee894bb478615cc1b9960377527057574b5  results/cifar100_dfc_low16_derpp_seed433.json
