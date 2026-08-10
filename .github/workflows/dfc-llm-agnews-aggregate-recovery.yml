@@ -1,0 +1,92 @@
+name: DFC Qwen AG News aggregate recovery
+
+on:
+  push:
+    branches: [dfc-v2.1-validation]
+    paths: ['.github/workflows/dfc-llm-agnews-aggregate-recovery.yml']
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  aggregate-recovery:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install aggregation dependency
+        run: python -m pip install 'numpy==2.3.2'
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: YellowJune/T3st
+          run-id: 31313079626
+          pattern: qwen-agnews-final-seed*
+          path: rows
+          merge-multiple: true
+      - name: Recompute metrics, audit resources, and apply original predeclared gate
+        run: |
+          python - <<'PY'
+          import glob,json,statistics,hashlib
+          from collections import defaultdict
+          import numpy as np
+          rows=[json.load(open(p)) for p in sorted(glob.glob('rows/*.json'))]
+          assert len(rows)==15, len(rows)
+          by=defaultdict(dict)
+          methods=('naive','derpp','dfc_sign_derpp')
+          for r in rows:
+              m=np.asarray(r['accuracy_matrix'],dtype=float)
+              final=float(np.nanmean(m[-1])); current=float(np.nanmean(np.diag(m)))
+              fg=float(np.mean([np.nanmax(m[t:,t])-m[-1,t] for t in range(m.shape[0]-1)]))
+              assert abs(final-r['final_average_accuracy'])<1e-12
+              assert abs(current-r['current_task_accuracy'])<1e-12
+              assert abs(fg-r['average_forgetting'])<1e-12
+              by[int(r['seed'])][r['method']]=r
+          seeds=sorted(by)
+          assert seeds==[911,929,947,971,997]
+          for s in seeds:
+              assert set(by[s])==set(methods)
+              ref=by[s]['derpp']; dfc=by[s]['dfc_sign_derpp']
+              keys=('model','resolved_model_revision','dataset','resolved_dataset_revision','dataset_subset_sha256','external_bytes','batch_size','steps_per_task','tasks','updates','processed_text_slots','seq_len','trainable_parameters','lora_rank','lora_last_layers','lr','weight_decay','record_bytes','replay_ce_weight','distill_weight','train_per_class','eval_per_class')
+              for k in keys: assert all(by[s][mm][k]==ref[k] for mm in methods), (s,k)
+              assert dfc['sign_fiber_bytes']==dfc['trainable_parameters']//8
+              assert ref['sign_fiber_bytes']==0
+              assert ref['record_capacity']==(ref['external_bytes']-32)//ref['record_bytes']
+              assert dfc['record_capacity']==(dfc['external_bytes']+dfc['sign_fiber_bytes']-32)//dfc['record_bytes']
+          cross=('model','resolved_model_revision','dataset','resolved_dataset_revision','external_bytes','batch_size','steps_per_task','tasks','updates','processed_text_slots','seq_len','trainable_parameters','lora_rank','lora_last_layers','lr','weight_decay','record_bytes','replay_ce_weight','distill_weight','train_per_class','eval_per_class')
+          first=by[seeds[0]]['derpp']
+          for s in seeds[1:]: assert all(by[s]['derpp'][k]==first[k] for k in cross), ('cross-seed drift',s)
+          def vals(method,key): return [float(by[s][method][key]) for s in seeds]
+          mean=lambda xs: float(statistics.mean(xs))
+          final_diff=[by[s]['dfc_sign_derpp']['final_average_accuracy']-by[s]['derpp']['final_average_accuracy'] for s in seeds]
+          forget_diff=[by[s]['dfc_sign_derpp']['average_forgetting']-by[s]['derpp']['average_forgetting'] for s in seeds]
+          current_diff=[by[s]['dfc_sign_derpp']['current_task_accuracy']-by[s]['derpp']['current_task_accuracy'] for s in seeds]
+          summary={
+            'schema_version':2,'seeds':seeds,'n_seeds':len(seeds),
+            'source_run_id':31313079626,'source_commit':'bb685fcc4898781ef9b8dd7dd9d9fbac37e6d6f6',
+            'predeclared_gate':{'final_gain_min':0.05,'forgetting_diff_max':0.0,'current_diff_min':-0.05},
+            'derpp':{k:mean(vals('derpp',k)) for k in ('final_average_accuracy','average_forgetting','current_task_accuracy','record_capacity','wall_seconds')},
+            'dfc_sign_derpp':{k:mean(vals('dfc_sign_derpp',k)) for k in ('final_average_accuracy','average_forgetting','current_task_accuracy','record_capacity','wall_seconds')},
+            'naive':{k:mean(vals('naive',k)) for k in ('final_average_accuracy','average_forgetting','current_task_accuracy','wall_seconds')},
+            'paired_dfc_minus_derpp':{'final':final_diff,'forgetting':forget_diff,'current':current_diff,'final_mean':mean(final_diff),'forgetting_mean':mean(forget_diff),'current_mean':mean(current_diff)},
+            'model':first['model'],'model_revision':first['resolved_model_revision'],'dataset':first['dataset'],'dataset_revision':first['resolved_dataset_revision'],
+            'trainable_parameters':first['trainable_parameters'],'external_bytes':first['external_bytes'],'record_bytes':first['record_bytes'],
+            'dfc_sign_fiber_bytes':by[seeds[0]]['dfc_sign_derpp']['sign_fiber_bytes'],
+          }
+          passed=(summary['paired_dfc_minus_derpp']['final_mean']>=0.05 and summary['paired_dfc_minus_derpp']['forgetting_mean']<=0.0 and summary['paired_dfc_minus_derpp']['current_mean']>=-0.05)
+          summary['status']='PASS' if passed else 'FAIL'
+          raw=json.dumps(summary,sort_keys=True,separators=(',',':')).encode(); summary['result_sha256']=hashlib.sha256(raw).hexdigest()
+          open('qwen_agnews_final_summary.json','w').write(json.dumps(summary,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(summary,indent=2,sort_keys=True))
+          if not passed: raise SystemExit('predeclared gate failed')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qwen-agnews-final-summary-recovered
+          path: qwen_agnews_final_summary.json
+          if-no-files-found: error
+          retention-days: 30
