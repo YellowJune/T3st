@@ -1,0 +1,86 @@
+% DFC/MANTIS v2.1 manuscript insertion.
+% Evidence source: docs/VALIDATION_V21.md and immutable validation summaries.
+
+\subsection{Full-FP32 Continual Adaptation on a Pretrained LLM}
+\label{sec:qwen_partial}
+
+We next cross the boundary from small continual-learning models to an actual
+pretrained language model.  We use \texttt{Qwen/Qwen2.5-0.5B} at pinned Hub
+revision \texttt{060db6499f32faf8b98477b0a26969ef7d8b9987} and sequentially
+adapt the final transformer block with ordinary full-FP32 AdamW state.  The
+trainable subspace contains 14,912,384 parameters.  External DER++ and
+DFC-SIGN+DER++ receive exactly the same 512-byte external allocation, four
+sequential tasks, 128 optimizer steps per task, identical two-prompt update
+shape, and the same FP32 first- and second-moment allocations.  The only
+additional addressability available to DFC-SIGN is the sign fiber already
+present in the ordinary FP32 second moment: one exact bit per coordinate,
+or 1,864,048 addressable bytes.  Replay records occupy 104 bytes.
+
+The sealed evaluation uses five seeds (1901, 1931, 1951, 1987, and 2017).
+All ten method--seed jobs completed and emitted immutable result rows.  The
+aggregate-only workflow initially failed before analysis because its fresh
+runner lacked NumPy; a recovery workflow downloaded the original artifacts,
+recomputed every metric from the stored accuracy matrices, re-audited all
+resource identities, and applied the original predeclared gate without
+rerunning any learning job.  Table~\ref{tab:qwen_partial} reports the recovered
+five-seed means.
+
+\begin{table}[t]
+\centering
+\caption{Full-FP32 Qwen2.5-0.5B sequential partial fine-tuning under the
+same 512-byte external envelope.  DFC differences are paired against external
+DER++.  Accuracy differences are percentage points.}
+\label{tab:qwen_partial}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{lrrr}
+\hline
+Metric & External DER++ & DFC-SIGN+DER++ & $\Delta$ \\
+\hline
+Final average accuracy & 36.250\% & 79.375\% & +43.125 \\
+Average forgetting & 84.167 & 25.833 & -58.333 \\
+Current-task accuracy & 99.375\% & 98.125\% & -1.250 \\
+Replay-record capacity & 4 & 17,928 & +17,924 \\
+Mean wall time (s) & 252.31 & 242.90 & -9.41 \\
+\hline
+\end{tabular}
+\end{table}
+
+The paired final-accuracy gains are +34.375, +53.125, +50.000, +50.000, and
++28.125 points, so the effect is not carried by one seed.  The corresponding
+forgetting differences are -45.833, -70.833, -70.833, -62.500, and -41.667
+points.  Current-task differences are -3.125, 0, -3.125, +3.125, and -3.125
+points.  The predeclared gate required mean final-accuracy gain of at least
++10 points, mean forgetting reduction of at least 5 points, and mean
+current-task difference no worse than -5 points; all three conditions pass.
+Thus the gain is a retention effect under a fixed external physical envelope,
+not a collapse of current-task learning.
+
+This experiment is deliberately described as a controlled sequential-task
+partial-fine-tuning validation rather than a natural-domain benchmark.  A
+separate five-seed AG News LoRA stress test provides a useful falsifier.  There,
+DFC-SIGN+DER++ increases final average accuracy from 27.734\% to 37.109\% and
+reduces forgetting from 82.500 to 61.667 points, but current-task accuracy
+falls from 89.609\% to 79.219\%.  The predeclared plasticity condition is
+therefore violated.  We retain this negative row rather than tune it away:
+it shows that extra in-state replay capacity does not by itself remove the
+stability--plasticity tradeoff for every adaptation protocol.
+
+\subsection{Matched Fused Triton Deployment Path}
+\label{sec:triton_v21}
+
+The deployment artifact now contains two matched Triton primitives: a fused
+reference AdamW kernel and a fused DFC-SIGN AdamW kernel.  They use the same
+ordered FP32 AdamW arithmetic and the same parameter, gradient, first-moment,
+and second-moment load/store footprint.  DFC-SIGN adds only sign extraction,
+magnitude decoding, and sign re-embedding around that update.  The benchmark
+first checks bitwise parameter and first-moment equality, decoded-second-moment
+equality, and payload persistence; it then times both fused kernels with CUDA
+Events for 1M, 4M, 16M, and 32M coordinates and reports latency, effective
+bandwidth, and relative overhead.
+
+At the time of this release, no CUDA-capable runner available to the artifact
+has completed the hardware gate.  We therefore make no measured GPU-overhead
+claim here.  The fused-vs.-fused benchmark, exactness guard, and workflow are
+executable, and any future hardware number is admitted only from the produced
+JSON artifact.  This preserves the evidence-tier rule that proposed or queued
+hardware paths are code, not empirical rows.
