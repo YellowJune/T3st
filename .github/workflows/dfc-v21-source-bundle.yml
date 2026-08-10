@@ -24,7 +24,7 @@ jobs:
           cp .github/workflows/dfc-llm-partial-final.yml .github/workflows/dfc-llm-partial-aggregate-recovery.yml bundle/workflows/
           cp .github/workflows/dfc-llm-agnews-sealed-v2.yml .github/workflows/dfc-llm-agnews-aggregate-recovery.yml bundle/workflows/
           cp .github/workflows/dfc-gpu-validation.yml bundle/workflows/
-          cp docs/VALIDATION_V21.md bundle/docs/
+          cp docs/VALIDATION_V21.md docs/MANUSCRIPT_V21_INSERT.tex bundle/docs/
           cp results/validation_v21/qwen_partial_final_summary_recovered.json bundle/results/
           cp results/validation_v21/qwen_agnews_final_summary_recovered.json bundle/results/
           cp src/analyze_llm_agnews_v21.py bundle/src/ 2>/dev/null || true
