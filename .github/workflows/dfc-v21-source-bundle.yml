@@ -17,13 +17,19 @@ jobs:
       - name: Collect validation sources
         run: |
           set -euo pipefail
-          mkdir -p bundle/remote bundle/workflows bundle/docs bundle/src
+          mkdir -p bundle/remote bundle/workflows bundle/docs bundle/src bundle/results
           cp remote/llm_continual_qwen.py remote/llm_continual_qwen_partial.py bundle/remote/
+          cp remote/llm_continual_qwen_agnews.py remote/llm_continual_qwen_agnews_v2.py bundle/remote/
           cp remote/torch_fiber.py remote/triton_dfc_adamw.py remote/benchmark_triton_dfc.py remote/test_triton_dfc.py bundle/remote/
-          cp .github/workflows/dfc-llm-partial-final.yml .github/workflows/dfc-gpu-validation.yml bundle/workflows/
-          cp docs/VALIDATION_V21.md bundle/docs/ 2>/dev/null || true
+          cp .github/workflows/dfc-llm-partial-final.yml .github/workflows/dfc-llm-partial-aggregate-recovery.yml bundle/workflows/
+          cp .github/workflows/dfc-llm-agnews-sealed-v2.yml .github/workflows/dfc-llm-agnews-aggregate-recovery.yml bundle/workflows/
+          cp .github/workflows/dfc-gpu-validation.yml bundle/workflows/
+          cp docs/VALIDATION_V21.md bundle/docs/
+          cp results/validation_v21/qwen_partial_final_summary_recovered.json bundle/results/
+          cp results/validation_v21/qwen_agnews_final_summary_recovered.json bundle/results/
           cp src/analyze_llm_agnews_v21.py bundle/src/ 2>/dev/null || true
           printf '%s\n' '${{ github.sha }}' > bundle/SOURCE_COMMIT.txt
+          (cd bundle && find . -type f -print0 | sort -z | xargs -0 sha256sum) > bundle/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: dfc-v21-source-bundle
