@@ -1,0 +1,44 @@
+{
+  "derpp": {
+    "average_forgetting": 0.8416666666666667,
+    "current_task_accuracy": 0.99375,
+    "final_average_accuracy": 0.3625,
+    "record_capacity": 4.0,
+    "wall_seconds": 252.30820378039996
+  },
+  "dfc_sign_derpp": {
+    "average_forgetting": 0.2583333333333333,
+    "current_task_accuracy": 0.98125,
+    "final_average_accuracy": 0.79375,
+    "record_capacity": 17928.0,
+    "wall_seconds": 242.8965847714
+  },
+  "dfc_sign_fiber_bytes": 1864048,
+  "external_bytes": 512,
+  "model": "Qwen/Qwen2.5-0.5B",
+  "model_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "n_seeds": 5,
+  "paired_dfc_minus_derpp": {
+    "current": [-0.03125, 0.0, -0.03125, 0.03125, -0.03125],
+    "current_mean": -0.0125,
+    "final": [0.34375, 0.53125, 0.5, 0.5, 0.28125],
+    "final_mean": 0.43125,
+    "forgetting": [-0.4583333333333333, -0.7083333333333334, -0.7083333333333334, -0.625, -0.4166666666666667],
+    "forgetting_mean": -0.5833333333333334
+  },
+  "predeclared_gate": {
+    "current_diff_min": -0.05,
+    "final_gain_min": 0.1,
+    "forgetting_diff_max": -0.05
+  },
+  "protocol": "qwen-causal-partial-v1",
+  "record_bytes": 104,
+  "result_sha256": "c75ccc686fd36cc004fcafe0d9035afef3896e5437cc64820d636c468eb1c01a",
+  "schema_version": 2,
+  "seeds": [1901, 1931, 1951, 1987, 2017],
+  "source_commit": "08962f67fe8e2d78ccfce2f2383024d933f02d8f",
+  "source_run_id": 31315481945,
+  "status": "PASS",
+  "train_last_layers": 1,
+  "trainable_parameters": 14912384
+}
