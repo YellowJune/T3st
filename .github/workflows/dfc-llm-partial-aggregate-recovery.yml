@@ -45,7 +45,11 @@ jobs:
               mat=np.asarray(r['accuracy_matrix'],dtype=float)
               final=float(np.nanmean(mat[-1]))
               current=float(np.nanmean(np.diag(mat)))
-              forgetting=float(np.mean([np.nanmax(mat[t:,t])-mat[-1,t] for t in range(mat.shape[0]-1)]))
+              forgetting=[]
+              for t in range(mat.shape[0]-1):
+                  hist=mat[t:,t]
+                  forgetting.append(float(np.nanmax(hist[:-1])-hist[-1]))
+              forgetting=float(np.mean(forgetting))
               assert abs(final-r['final_average_accuracy'])<1e-12
               assert abs(current-r['current_task_accuracy'])<1e-12
               assert abs(forgetting-r['average_forgetting'])<1e-12
