@@ -1,0 +1,56 @@
+name: Collect DFC-EF Kaggle validation
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - 'kaggle/launch/collect'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require Kaggle token secret
+        run: |
+          if [ -z "$KAGGLE_API_TOKEN" ]; then
+            echo 'Repository secret KAGGLE_API_TOKEN is not configured.' >&2
+            exit 20
+          fi
+      - name: Install official Kaggle CLI
+        run: python -m pip install --quiet 'kaggle>=2,<3'
+      - name: Query statuses and retrieve completed outputs
+        shell: bash
+        run: |
+          set +e
+          mkdir -p collected/status collected/gpu_gate collected/qwen_campaign collected/tpu_gate
+          for SPEC in \
+            'gpu_gate:yellwojune083/dfc-ef-gpu-systems-gate' \
+            'qwen_campaign:yellwojune083/dfc-ef-qwen-free-gpu-campaign' \
+            'tpu_gate:yellwojune083/dfc-ef-tpu-cross-substrate-gate'
+          do
+            NAME=${SPEC%%:*}; KERNEL=${SPEC#*:}
+            echo "===== $NAME / $KERNEL =====" | tee "collected/status/${NAME}.txt"
+            kaggle kernels status "$KERNEL" 2>&1 | tee -a "collected/status/${NAME}.txt"
+            kaggle kernels files "$KERNEL" --page-size 200 2>&1 | tee -a "collected/status/${NAME}.txt"
+            kaggle kernels output "$KERNEL" -p "collected/${NAME}" -o --page-size 200 \
+              >>"collected/status/${NAME}.txt" 2>&1
+          done
+          set -e
+          find collected -maxdepth 4 -type f -printf '%p %s bytes\n' | sort | tee collected/file_ledger.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-dfc-ef-collected-${{ github.run_id }}
+          path: collected
+          if-no-files-found: error
+          retention-days: 30
