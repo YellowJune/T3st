@@ -1,0 +1,31 @@
+name: DFC-EF CPU exactness gate
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - 'remote/dfc_ef.py'
+      - 'remote/test_dfc_ef.py'
+      - 'remote/torch_fiber.py'
+      - '.github/workflows/dfc-ef-cpu-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exactness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pytest torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run DFC-EF exactness and checkpoint gates
+        working-directory: remote
+        run: python -m pytest -q test_dfc_ef.py
