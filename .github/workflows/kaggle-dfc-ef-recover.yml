@@ -1,0 +1,57 @@
+name: Recover DFC-EF Kaggle GPU evidence
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - 'kaggle/launch/recover_gpu_gate'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reuse temporary Kaggle credential already present in launch workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          export KAGGLE_CONFIG_DIR="$RUNNER_TEMP/kaggle-auth"
+          mkdir -p "$KAGGLE_CONFIG_DIR"
+          b64=$(python - <<'PY'
+          import pathlib, re
+          text=pathlib.Path('.github/workflows/kaggle-dfc-ef-launch.yml').read_text()
+          m=re.search(r'^\s*KAGGLE_CONFIG_B64:\s*(\S+)\s*$', text, re.M)
+          if not m: raise SystemExit('credential marker not found')
+          print(m.group(1))
+          PY
+          )
+          printf '%s' "$b64" | base64 --decode > "$KAGGLE_CONFIG_DIR/kaggle.json"
+          chmod 600 "$KAGGLE_CONFIG_DIR/kaggle.json"
+          echo "KAGGLE_CONFIG_DIR=$KAGGLE_CONFIG_DIR" >> "$GITHUB_ENV"
+      - name: Recover failed kernel outputs
+        shell: bash
+        run: |
+          set -uo pipefail
+          python -m pip install --quiet 'kaggle>=2,<3'
+          mkdir -p kaggle_status kaggle_gpu_output
+          kaggle kernels status yellwojune083/dfc-ef-gpu-systems-gate | tee kaggle_status/status.txt || true
+          kaggle kernels files yellwojune083/dfc-ef-gpu-systems-gate > kaggle_status/files.txt 2>&1 || true
+          kaggle kernels output yellwojune083/dfc-ef-gpu-systems-gate -p kaggle_gpu_output -o > kaggle_status/output_fetch.txt 2>&1 || true
+          find kaggle_gpu_output -maxdepth 4 -type f -printf '%p %s bytes\n' | sort | tee kaggle_status/recovered_files.txt || true
+      - name: Upload recovery evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: dfc-ef-kaggle-gpu-recovery-${{ github.sha }}
+          path: |
+            kaggle_status/
+            kaggle_gpu_output/
+          if-no-files-found: warn
+          retention-days: 30
