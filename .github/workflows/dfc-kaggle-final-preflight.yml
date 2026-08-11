@@ -14,6 +14,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Reject committed Kaggle credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n --exclude-dir=.git --exclude='*.zip' -E 'KGAT_[A-Za-z0-9_-]{12,}|KAGGLE_KEY[[:space:]]*=' .; then
+            echo 'Credential-like material detected in repository'
+            exit 1
+          fi
+          echo 'credential leak gate: PASS'
       - name: Install CPU dependencies
         run: |
           python -m pip install --upgrade pip
