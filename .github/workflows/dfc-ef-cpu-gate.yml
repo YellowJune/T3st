@@ -18,7 +18,12 @@ on:
       - 'remote/gpu_dfc_ef_exactness.py'
       - 'remote/gpu_dfc_ef_throughput.py'
       - 'remote/llm_dfc_ef_qwen.py'
+      - 'remote/llm_dfc_ef_qwen_safe.py'
       - 'remote/kaggle_gpu_campaign.py'
+      - 'remote/tpu_dfc_ef_jax.py'
+      - 'kaggle/dfc_ef_gpu_gate/run.py'
+      - 'kaggle/dfc_ef_qwen_campaign/run.py'
+      - 'kaggle/dfc_ef_tpu_gate/run.py'
       - 'remote/torch_fiber.py'
       - '.github/workflows/dfc-ef-cpu-gate.yml'
   workflow_dispatch:
@@ -49,12 +54,16 @@ jobs:
             test_chunked_low16_adamw.py \
             test_chunked_fp32_adamw.py \
             test_kaggle_checkpoint.py
-      - name: Syntax-check GPU and LLM runners
-        working-directory: remote
+      - name: Syntax-check all free-compute runners
         run: |
           python -m py_compile \
-            gpu_memory_frontier.py \
-            gpu_dfc_ef_exactness.py \
-            gpu_dfc_ef_throughput.py \
-            llm_dfc_ef_qwen.py \
-            kaggle_gpu_campaign.py
+            remote/gpu_memory_frontier.py \
+            remote/gpu_dfc_ef_exactness.py \
+            remote/gpu_dfc_ef_throughput.py \
+            remote/llm_dfc_ef_qwen.py \
+            remote/llm_dfc_ef_qwen_safe.py \
+            remote/kaggle_gpu_campaign.py \
+            remote/tpu_dfc_ef_jax.py \
+            kaggle/dfc_ef_gpu_gate/run.py \
+            kaggle/dfc_ef_qwen_campaign/run.py \
+            kaggle/dfc_ef_tpu_gate/run.py
