@@ -1,7 +1,7 @@
 """CPU BF16 loading wrapper for large free-runner DFC-EF placement tests.
 
 The scientific comparison remains external-EF vs DFC-EF under identical
-LOW16 moment semantics.  Only model parameter storage/compute dtype is changed
+LOW16 moment semantics. Only model parameter storage/compute dtype is changed
 to BF16 to make larger pretrained models feasible on free CPU runners.
 """
 from __future__ import annotations
@@ -19,6 +19,16 @@ def _safe_build_optimizer(method, params, args):
                                    weight_decay=args.weight_decay, chunk_coordinates=args.optimizer_chunk)
     return _original_build_optimizer(method, params, args)
 core.build_optimizer = _safe_build_optimizer
+
+# NumPy has no native torch.bfloat16 conversion. Hash the physical 16-bit words
+# so the comparison remains bitwise exact.
+def _bf16_safe_hash_tensor(h, tensor: torch.Tensor) -> None:
+    x=tensor.detach().contiguous().cpu()
+    if x.dtype == torch.bfloat16:
+        h.update(x.view(torch.uint16).numpy().tobytes())
+    else:
+        h.update(x.numpy().tobytes())
+core._update_hash_tensor = _bf16_safe_hash_tensor
 
 _orig_from_pretrained = transformers.AutoModelForCausalLM.from_pretrained
 
