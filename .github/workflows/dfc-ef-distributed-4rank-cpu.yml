@@ -5,6 +5,7 @@ on:
     branches: [dfc-h200-final]
     paths:
       - '.github/workflows/dfc-ef-distributed-4rank-cpu.yml'
+      - 'remote/distributed_dfc_ef_cpu.py'
   workflow_dispatch:
 
 permissions:
@@ -35,8 +36,6 @@ jobs:
           root='../results/distributed4_cpu'; pairs=[]
           for rank in range(4):
               e=json.load(open(f'{root}/external_rank{rank}.json')); d=json.load(open(f'{root}/dfc_rank{rank}.json'))
-              # The worker was originally sealed for two ranks.  Its local update
-              # logic is rank-count agnostic, but require actual metadata to say 4.
               exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','transmitted_values_local','coordinates','steps','world_size']}
               storage=e['external_residual_bytes']==4*e['coordinates'] and d['external_residual_bytes']==0 and d['dfc_fiber_capacity_bytes']==4*d['coordinates']
               pairs.append({'rank':rank,'exact':exact,'storage_ok':storage,'world_size':e['world_size']})
