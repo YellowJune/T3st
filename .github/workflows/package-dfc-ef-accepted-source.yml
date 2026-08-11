@@ -1,0 +1,57 @@
+name: Package accepted DFC-EF source
+
+on:
+  push:
+    branches: [dfc-h200-final]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout accepted execution commit
+        uses: actions/checkout@v4
+        with:
+          ref: b732ff3228038b2391a576f72d79c379cdc23654
+      - name: Seal source provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p accepted_source/remote accepted_source/.github/workflows
+          files=(
+            remote/dfc_ef.py
+            remote/block_topk_ef.py
+            remote/chunked_low16_adamw.py
+            remote/chunked_fp32_adamw.py
+            remote/torch_fiber.py
+            remote/llm_dfc_ef_qwen.py
+            remote/llm_dfc_ef_qwen_safe.py
+            remote/kaggle_checkpoint.py
+            remote/gpu_dfc_ef_exactness.py
+            remote/gpu_dfc_ef_throughput.py
+            remote/gpu_memory_frontier.py
+            remote/tpu_dfc_ef_jax.py
+            remote/test_dfc_ef.py
+            remote/test_block_topk_ef.py
+            remote/test_chunked_low16_adamw.py
+            remote/test_kaggle_checkpoint.py
+          )
+          for f in "${files[@]}"; do cp "$f" "accepted_source/$f"; done
+          wf=(
+            .github/workflows/dfc-ef-cpu-gate.yml
+            .github/workflows/dfc-ef-jax-cpu-gate.yml
+            .github/workflows/dfc-ef-qwen-cpu-sealed-pairs.yml
+          )
+          for f in "${wf[@]}"; do cp "$f" "accepted_source/$f"; done
+          printf '%s\n' b732ff3228038b2391a576f72d79c379cdc23654 > accepted_source/ACCEPTED_EXECUTION_COMMIT.txt
+          (cd accepted_source && find . -type f -print0 | sort -z | xargs -0 sha256sum) > accepted_source/SHA256SUMS_ACCEPTED_SOURCE.txt
+      - name: Upload exact accepted source
+        uses: actions/upload-artifact@v4
+        with:
+          name: dfc-ef-accepted-source-b732ff3
+          path: accepted_source
+          if-no-files-found: error
+          retention-days: 30
