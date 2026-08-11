@@ -20,7 +20,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/DFC_KAGGLE_LAUNCHER/kaggle dist/DFC_KAGGLE_LAUNCHER/kaggle_tpu dist/DFC_KAGGLE_LAUNCHER/docs
-          cp kaggle/dfc_kaggle_final_gpu.py kaggle/kernel-metadata.json dist/DFC_KAGGLE_LAUNCHER/kaggle/
+          cp kaggle/dfc_kaggle_final_gpu.py kaggle/kernel-metadata.json kaggle/LAUNCH_FROM_LOCAL.sh dist/DFC_KAGGLE_LAUNCHER/kaggle/
+          chmod +x dist/DFC_KAGGLE_LAUNCHER/kaggle/LAUNCH_FROM_LOCAL.sh
           cp kaggle_tpu/dfc_kaggle_tpu.py kaggle_tpu/kernel-metadata.json dist/DFC_KAGGLE_LAUNCHER/kaggle_tpu/
           cp docs/KAGGLE_FINAL_PROTOCOL.md dist/DFC_KAGGLE_LAUNCHER/docs/
           git rev-parse HEAD > dist/DFC_KAGGLE_LAUNCHER/SOURCE_COMMIT.txt
