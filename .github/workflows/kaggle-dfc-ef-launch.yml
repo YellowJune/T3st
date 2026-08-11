@@ -1,0 +1,76 @@
+name: Launch DFC-EF Kaggle validation
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - 'kaggle/launch/gpu_gate'
+      - 'kaggle/launch/qwen_campaign'
+      - 'kaggle/launch/tpu_gate'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'gpu_gate | qwen_campaign | tpu_gate'
+        required: true
+        default: gpu_gate
+
+permissions:
+  contents: read
+
+jobs:
+  launch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require Kaggle token secret
+        run: |
+          if [ -z "$KAGGLE_API_TOKEN" ]; then
+            echo 'Repository secret KAGGLE_API_TOKEN is not configured.' >&2
+            exit 20
+          fi
+      - name: Install official Kaggle CLI
+        run: python -m pip install --quiet 'kaggle>=2,<3'
+      - name: Resolve launch target
+        id: target
+        shell: bash
+        run: |
+          TARGET='${{ github.event.inputs.target }}'
+          if [ -z "$TARGET" ]; then
+            case '${{ github.event.head_commit.modified }}' in
+              *gpu_gate*) TARGET='gpu_gate' ;;
+              *qwen_campaign*) TARGET='qwen_campaign' ;;
+              *tpu_gate*) TARGET='tpu_gate' ;;
+            esac
+          fi
+          # Push events do not reliably expose modified files as a scalar, so
+          # fall back to the commit diff.
+          if [ -z "$TARGET" ]; then
+            FILES=$(git diff-tree --no-commit-id --name-only -r '${{ github.sha }}')
+            if echo "$FILES" | grep -q '^kaggle/launch/gpu_gate$'; then TARGET='gpu_gate'; fi
+            if echo "$FILES" | grep -q '^kaggle/launch/qwen_campaign$'; then TARGET='qwen_campaign'; fi
+            if echo "$FILES" | grep -q '^kaggle/launch/tpu_gate$'; then TARGET='tpu_gate'; fi
+          fi
+          case "$TARGET" in gpu_gate|qwen_campaign|tpu_gate) ;; *) echo "bad target: $TARGET" >&2; exit 21;; esac
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "Launching $TARGET"
+      - name: Launch GPU systems gate
+        if: steps.target.outputs.target == 'gpu_gate'
+        run: |
+          kaggle kernels push -p kaggle/dfc_ef_gpu_gate --accelerator NvidiaTeslaP100 --timeout 7200 \
+            || kaggle kernels push -p kaggle/dfc_ef_gpu_gate --accelerator NvidiaTeslaT4 --timeout 7200
+      - name: Launch Qwen campaign
+        if: steps.target.outputs.target == 'qwen_campaign'
+        run: |
+          kaggle kernels push -p kaggle/dfc_ef_qwen_campaign --accelerator NvidiaTeslaP100 --timeout 39600 \
+            || kaggle kernels push -p kaggle/dfc_ef_qwen_campaign --accelerator NvidiaTeslaT4 --timeout 39600
+      - name: Launch TPU gate
+        if: steps.target.outputs.target == 'tpu_gate'
+        run: |
+          kaggle kernels push -p kaggle/dfc_ef_tpu_gate --accelerator TpuV38 --timeout 14400 \
+            || kaggle kernels push -p kaggle/dfc_ef_tpu_gate --timeout 14400
