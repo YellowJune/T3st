@@ -1,0 +1,81 @@
+name: DFC-EF 3B and 7B BF16 micro placement recovery
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-large-bf16-micro-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pair:
+    name: qwen-${{ matrix.tag }}-micro-pair
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tag: 3b
+            model: Qwen/Qwen2.5-3B
+          - tag: 7b
+            model: Qwen/Qwen2.5-7B
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Same-host external and DFC micro placement pair
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+        working-directory: remote
+        run: |
+          ROOT='../results/large_bf16_micro/${{ matrix.tag }}'; mkdir -p "$ROOT"
+          set +e
+          for METHOD in dfc_ef external_ef; do
+            timeout 4200 python llm_dfc_ef_cpu_bf16_micro.py --method "$METHOD" --seed 1901 \
+              --model '${{ matrix.model }}' --revision main --device cpu --train-last-layers 1 \
+              --updates 1 --batch-size 1 --eval-batch-size 8 --eval-every 1 --keep-ratio 0.125 --deterministic \
+              --output "$ROOT/${METHOD}.json" > "$ROOT/${METHOD}.stdout.txt" 2> "$ROOT/${METHOD}.stderr.txt"
+            echo "$?" > "$ROOT/${METHOD}.rc"
+            [ "$(cat $ROOT/${METHOD}.rc)" = 0 ] || break
+          done
+          set -e
+          TAG='${{ matrix.tag }}' python - <<'PY'
+          import hashlib,json,os
+          tag=os.environ['TAG']; root=f'../results/large_bf16_micro/{tag}'
+          drc=int(open(root+'/dfc_ef.rc').read()) if os.path.exists(root+'/dfc_ef.rc') else None
+          erc=int(open(root+'/external_ef.rc').read()) if os.path.exists(root+'/external_ef.rc') else None
+          out={'schema_version':1,'protocol':'qwen-large-dfc-ef-bf16-micro-pair-v1','tag':tag,'return_codes':{'dfc_ef':drc,'external_ef':erc}}
+          if drc==0 and erc==0:
+              d=json.load(open(root+'/dfc_ef.json')); e=json.load(open(root+'/external_ef.json'))
+              exact={k:d[k]==e[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss','history','transmitted_values']}
+              P=d['trainable_parameters']; storage=(e['actual_external_residual_bytes']==4*P and d['actual_external_residual_bytes']==0 and d['dfc_fiber_capacity_bytes']==4*P)
+              out.update({'status':'PASS' if all(exact.values()) and storage else 'FAIL','exact':exact,'storage_ok':storage,'model':d['model'],'resolved_revision':d['resolved_hub_revision'],'total_model_parameters':d['total_model_parameters'],'trainable_parameters':P,'theoretical_external_residual_bytes':4*P,'evaluation_examples':8,'external_wall_seconds':e['wall_seconds'],'dfc_wall_seconds':d['wall_seconds'],'claim_boundary':'Actual pretrained large-model CPU BF16 placement-only micro gate with one update and eight label-covering evaluation examples; not a learning-quality or GPU/HBM benchmark.'})
+          else:
+              tails={}
+              for m in ['dfc_ef','external_ef']:
+                  p=f'{root}/{m}.stderr.txt'; tails[m]=open(p,errors='replace').read()[-2500:] if os.path.exists(p) else None
+              out.update({'status':'RESOURCE_OR_RUNTIME_LIMIT','stderr_tails':tails,'claim_boundary':'Large-model micro recovery did not complete both matched paths; no positive placement claim is made at this size.'})
+          raw=json.dumps(out,sort_keys=True,separators=(',',':')).encode(); out['result_sha256']=hashlib.sha256(raw).hexdigest(); open(root+'/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']=='FAIL': raise SystemExit('scientific mismatch')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: large-bf16-micro-${{ matrix.tag }}
+          path: results/large_bf16_micro/${{ matrix.tag }}/*
+          if-no-files-found: warn
+          retention-days: 30
