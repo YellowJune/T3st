@@ -20,23 +20,34 @@ permissions:
 jobs:
   launch:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 120
     env:
-      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_CONFIG_DIR: ${{ runner.temp }}/kaggle-auth
+      KAGGLE_CONFIG_B64: eyJ1c2VybmFtZSI6InllbGx3b2p1bmUwODMiLCJrZXkiOiJiODQwNWMyYTlmY2ZkOWVlMmJhMDk2NjdmM2I5ZDljZiJ9
       MODIFIED_JSON: ${{ toJson(github.event.head_commit.modified) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Require Kaggle token secret
+      - name: Install temporary legacy Kaggle credential
+        shell: bash
         run: |
-          if [ -z "$KAGGLE_API_TOKEN" ]; then
-            echo 'Repository secret KAGGLE_API_TOKEN is not configured.' >&2
-            exit 20
-          fi
+          umask 077
+          mkdir -p "$KAGGLE_CONFIG_DIR"
+          printf '%s' "$KAGGLE_CONFIG_B64" | base64 --decode > "$KAGGLE_CONFIG_DIR/kaggle.json"
+          python - <<'PY'
+          import json, os
+          p=os.path.join(os.environ['KAGGLE_CONFIG_DIR'],'kaggle.json')
+          d=json.load(open(p))
+          assert d.get('username') and len(d.get('key','')) >= 20
+          print('legacy credential file validated for', d['username'])
+          PY
       - name: Install official Kaggle CLI
-        run: python -m pip install --quiet 'kaggle>=2,<3'
+        run: |
+          python -m pip install --quiet 'kaggle>=2,<3'
+          kaggle --version
+          kaggle kernels list --mine --page-size 1 >/dev/null
       - name: Resolve launch target
         id: target
         shell: bash
@@ -53,10 +64,19 @@ jobs:
       - name: Launch GPU systems gate
         if: steps.target.outputs.target == 'gpu_gate'
         run: |
-          # Kaggle's current default image does not ship Pascal/sm_60 kernels,
-          # so P100 is deliberately avoided. Try the larger T4 class first.
+          set -euo pipefail
           kaggle kernels push -p kaggle/dfc_ef_gpu_gate --accelerator NvidiaTeslaT4Highmem --timeout 7200 \
             || kaggle kernels push -p kaggle/dfc_ef_gpu_gate --accelerator NvidiaTeslaT4 --timeout 7200
+          mkdir -p kaggle_status kaggle_gpu_output
+          for i in $(seq 1 180); do
+            kaggle kernels status yellwojune083/dfc-ef-gpu-systems-gate | tee kaggle_status/status.txt || true
+            if grep -qiE 'complete' kaggle_status/status.txt; then break; fi
+            if grep -qiE 'error|failed|cancel' kaggle_status/status.txt; then exit 31; fi
+            sleep 20
+          done
+          grep -qiE 'complete' kaggle_status/status.txt
+          kaggle kernels output yellwojune083/dfc-ef-gpu-systems-gate -p kaggle_gpu_output -o
+          find kaggle_gpu_output -maxdepth 2 -type f -printf '%p %s bytes\n' | sort
       - name: Launch Qwen campaign
         if: steps.target.outputs.target == 'qwen_campaign'
         run: |
@@ -67,3 +87,13 @@ jobs:
         run: |
           kaggle kernels push -p kaggle/dfc_ef_tpu_gate --accelerator TpuV38 --timeout 14400 \
             || kaggle kernels push -p kaggle/dfc_ef_tpu_gate --timeout 14400
+      - name: Upload downloaded GPU evidence
+        if: always() && steps.target.outputs.target == 'gpu_gate'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dfc-ef-kaggle-gpu-evidence-${{ github.sha }}
+          path: |
+            kaggle_status/
+            kaggle_gpu_output/
+          if-no-files-found: warn
+          retention-days: 30
