@@ -2,9 +2,17 @@ from __future__ import annotations
 
 import io
 
+import pytest
 import torch
 
-from dfc_ef import PackedFP32Residual, memory_ledger, topk_error_feedback_dfc, topk_error_feedback_external
+from dfc_ef import (
+    PackedFP32Residual,
+    memory_ledger,
+    stride_error_feedback_dfc_inplace_,
+    stride_error_feedback_external_inplace_,
+    topk_error_feedback_dfc,
+    topk_error_feedback_external,
+)
 from torch_fiber import DFCLow16AdamW, HIGH16_MASK_I32
 
 
@@ -26,14 +34,13 @@ def test_packed_residual_bitwise_roundtrip():
     channel = PackedFP32Residual(opt)
     gen = torch.Generator().manual_seed(7)
     residual = torch.randn(p.shape, generator=gen, dtype=torch.float32)
-    # Include signed zero and extreme finite values.
     residual[:6] = torch.tensor([0.0, -0.0, 1.0, -1.0, 1e-30, 1e30], dtype=torch.float32)
     channel.write_for_parameter(p, residual)
     recovered = channel.read_for_parameter(p)
     assert torch.equal(recovered.view(torch.int32), residual.view(torch.int32))
 
 
-def test_external_and_dfc_ef_match_for_many_steps():
+def test_external_and_dfc_topk_match_for_many_steps():
     gen = torch.Generator().manual_seed(1234)
     init = torch.randn(2048, generator=gen, dtype=torch.float32)
     p_ext = torch.nn.Parameter(init.clone())
@@ -50,14 +57,54 @@ def test_external_and_dfc_ef_match_for_many_steps():
         c_dfc = topk_error_feedback_dfc(p_dfc, g, channel, keep_ratio=0.1)
         assert torch.equal(c_ext.view(torch.int32), c_dfc.view(torch.int32))
         assert torch.equal(residual_ext.view(torch.int32), channel.read_for_parameter(p_dfc).view(torch.int32))
-        p_ext.grad = c_ext.clone()
-        p_dfc.grad = c_dfc.clone()
+        p_ext.grad = c_ext.clone(); p_dfc.grad = c_dfc.clone()
         opt_ext.step(); opt_dfc.step()
         assert torch.equal(p_ext.view(torch.int32), p_dfc.view(torch.int32))
         se = opt_ext.state[p_ext]; sd = opt_dfc.state[p_dfc]
         assert torch.equal(_decoded(se['exp_avg']).view(torch.int32), _decoded(sd['exp_avg']).view(torch.int32))
         assert torch.equal(_decoded(se['exp_avg_sq']).view(torch.int32), _decoded(sd['exp_avg_sq']).view(torch.int32))
         assert torch.equal(residual_ext.view(torch.int32), channel.read_for_parameter(p_dfc).view(torch.int32))
+
+
+@pytest.mark.parametrize('dtype', [torch.float32, torch.float16])
+@pytest.mark.parametrize('chunk', [17, 128, 1000])
+def test_chunked_stride_path_exact_external_vs_dfc(dtype, chunk):
+    gen = torch.Generator().manual_seed(2026)
+    n = 4099
+    p_ext = torch.nn.Parameter(torch.randn(n, generator=gen, dtype=dtype))
+    p_dfc = torch.nn.Parameter(p_ext.detach().clone())
+    opt_ext = DFCLow16AdamW([p_ext], lr=7e-4, enable_fiber=False)
+    opt_dfc = DFCLow16AdamW([p_dfc], lr=7e-4, enable_fiber=True)
+    ch = PackedFP32Residual(opt_dfc); ch.zero_()
+    residual_ext = torch.zeros_like(p_ext, dtype=torch.float32)
+
+    for step in range(24):
+        # Generate in FP32, then round identically to the parameter/gradient dtype.
+        g = torch.randn(n, generator=gen, dtype=torch.float32).to(dtype)
+        ge = g.clone(); gd = g.clone()
+        sent_e = stride_error_feedback_external_inplace_(
+            ge, residual_ext, stride=8, offset=step % 8,
+            global_start=3, chunk_coordinates=chunk,
+        )
+        sent_d = stride_error_feedback_dfc_inplace_(
+            p_dfc, gd, ch, stride=8, offset=step % 8,
+            global_start=3, chunk_coordinates=chunk,
+        )
+        assert sent_e == sent_d
+        assert torch.equal(ge.view(torch.int16 if dtype == torch.float16 else torch.int32),
+                           gd.view(torch.int16 if dtype == torch.float16 else torch.int32))
+        hidden = ch.read_for_parameter(p_dfc)
+        assert torch.equal(residual_ext.view(torch.int32), hidden.view(torch.int32))
+        p_ext.grad = ge; p_dfc.grad = gd
+        opt_ext.step(); opt_dfc.step()
+        if dtype == torch.float32:
+            assert torch.equal(p_ext.view(torch.int32), p_dfc.view(torch.int32))
+        else:
+            assert torch.equal(p_ext.view(torch.int16), p_dfc.view(torch.int16))
+        se = opt_ext.state[p_ext]; sd = opt_dfc.state[p_dfc]
+        assert torch.equal(_decoded(se['exp_avg']).view(torch.int32), _decoded(sd['exp_avg']).view(torch.int32))
+        assert torch.equal(_decoded(se['exp_avg_sq']).view(torch.int32), _decoded(sd['exp_avg_sq']).view(torch.int32))
+        assert torch.equal(residual_ext.view(torch.int32), ch.read_for_parameter(p_dfc).view(torch.int32))
 
 
 def test_checkpoint_resume_preserves_hidden_residual_and_future_trajectory():
