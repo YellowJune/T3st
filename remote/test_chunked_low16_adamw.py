@@ -68,6 +68,31 @@ def test_chunked_fp16_fiber_is_semantically_invisible_and_sparse_safe():
         assert torch.equal(_decoded(sz['exp_avg_sq']).view(torch.int32), _decoded(sf['exp_avg_sq']).view(torch.int32))
 
 
+def test_fp16_checkpoint_reload_preserves_physical_fp32_words_bitwise():
+    """Regression for Optimizer.load_state_dict casting FP32 state to FP16."""
+    gen = torch.Generator().manual_seed(789)
+    init = torch.randn(5003, generator=gen, dtype=torch.float32).to(torch.float16)
+    p = torch.nn.Parameter(init.clone())
+    opt = DFCLow16AdamWChunked([p], lr=2e-4, enable_fiber=True, chunk_coordinates=257)
+    _install_payload(opt, p, salt1=31, salt2=47)
+    for step in range(5):
+        g = torch.randn(p.shape, generator=gen, dtype=torch.float32).to(torch.float16)
+        p.grad = g
+        opt.step()
+    before1 = opt.state[p]['exp_avg'].view(torch.int32).clone()
+    before2 = opt.state[p]['exp_avg_sq'].view(torch.int32).clone()
+    saved = opt.state_dict()
+
+    p2 = torch.nn.Parameter(torch.empty_like(p))
+    opt2 = DFCLow16AdamWChunked([p2], lr=2e-4, enable_fiber=True, chunk_coordinates=257)
+    opt2.load_state_dict(saved)
+    s2 = opt2.state[p2]
+    assert s2['exp_avg'].dtype == torch.float32
+    assert s2['exp_avg_sq'].dtype == torch.float32
+    assert torch.equal(before1, s2['exp_avg'].view(torch.int32))
+    assert torch.equal(before2, s2['exp_avg_sq'].view(torch.int32))
+
+
 def test_noef_stride_keeps_expected_positions():
     g = torch.arange(17, dtype=torch.float32)
     sent = stride_no_error_feedback_inplace_(g, stride=4, offset=2, global_start=3)
