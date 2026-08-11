@@ -1,0 +1,35 @@
+name: DFC Kaggle launcher bundle
+
+on:
+  push:
+    branches: [dfc-kaggle-final]
+    paths:
+      - 'kaggle/**'
+      - 'kaggle_tpu/**'
+      - 'docs/KAGGLE_FINAL_PROTOCOL.md'
+      - '.github/workflows/dfc-kaggle-launcher-bundle.yml'
+  workflow_dispatch:
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build launcher archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/DFC_KAGGLE_LAUNCHER/kaggle dist/DFC_KAGGLE_LAUNCHER/kaggle_tpu dist/DFC_KAGGLE_LAUNCHER/docs
+          cp kaggle/dfc_kaggle_final_gpu.py kaggle/kernel-metadata.json dist/DFC_KAGGLE_LAUNCHER/kaggle/
+          cp kaggle_tpu/dfc_kaggle_tpu.py kaggle_tpu/kernel-metadata.json dist/DFC_KAGGLE_LAUNCHER/kaggle_tpu/
+          cp docs/KAGGLE_FINAL_PROTOCOL.md dist/DFC_KAGGLE_LAUNCHER/docs/
+          git rev-parse HEAD > dist/DFC_KAGGLE_LAUNCHER/SOURCE_COMMIT.txt
+          (cd dist/DFC_KAGGLE_LAUNCHER && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+          (cd dist && zip -qr DFC_KAGGLE_LAUNCHER.zip DFC_KAGGLE_LAUNCHER)
+          sha256sum dist/DFC_KAGGLE_LAUNCHER.zip | tee dist/DFC_KAGGLE_LAUNCHER_ZIP_SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-kaggle-launcher
+          path: |
+            dist/DFC_KAGGLE_LAUNCHER.zip
+            dist/DFC_KAGGLE_LAUNCHER_ZIP_SHA256.txt
