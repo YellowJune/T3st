@@ -1,7 +1,10 @@
 launch dfc-ef qwen gpu campaign
-requested_utc=2026-08-12T08:22:00+09:00
+requested_utc=2026-08-12T08:32:00+09:00
 protocol=docs/DFC_EF_FREE_VALIDATION_PROTOCOL.md
+attempt=2
 model=Qwen/Qwen2.5-0.5B
 primary=all-transformer-blocks-3-seeds
 smoke=checkpointed-pair
 p100_compat=torch-2.7.1-cu126
+text_only_cleanup=remove-torchvision-torchaudio
+qwen_import_preflight=required
