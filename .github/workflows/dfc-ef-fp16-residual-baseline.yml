@@ -1,0 +1,55 @@
+name: DFC-EF external FP16 residual baseline
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-fp16-residual-baseline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    name: fp16-residual-seed${{ matrix.seed }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix: {seed: [1901, 1931, 1951]}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Same-host FP16 external residual vs DFC full-FP32 logical residual
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+        working-directory: remote
+        run: |
+          ROOT='../results/fp16_residual_baseline/seed${{ matrix.seed }}'; mkdir -p "$ROOT"
+          python llm_external_fp16_ef.py --method external_ef --seed '${{ matrix.seed }}' --device cpu --train-last-layers 1 --updates 96 --batch-size 2 --eval-batch-size 4 --eval-every 16 --keep-ratio 0.125 --deterministic --output "$ROOT/external_fp16_ef.json"
+          python llm_dfc_ef_qwen_safe.py --method dfc_ef --seed '${{ matrix.seed }}' --device cpu --train-last-layers 1 --updates 96 --batch-size 2 --eval-batch-size 4 --eval-every 16 --keep-ratio 0.125 --deterministic --output "$ROOT/dfc_ef.json"
+          S='${{ matrix.seed }}' python - <<'PY'
+          import hashlib,json,os
+          s=int(os.environ['S']); root=f'../results/fp16_residual_baseline/seed{s}'; q=json.load(open(root+'/external_fp16_ef.json')); d=json.load(open(root+'/dfc_ef.json')); P=d['trainable_parameters']
+          out={'schema_version':1,'protocol':'dfc-ef-vs-external-fp16-residual-v1','seed':s,'status':'COMPLETE','trainable_parameters':P,'external_fp16_residual_bytes':2*P,'dfc_external_residual_bytes':0,'dfc_fiber_capacity_bytes':4*P,'external_fp16_final_accuracy':q['final_accuracy'],'dfc_final_accuracy':d['final_accuracy'],'external_fp16_final_eval_loss':q['final_eval_loss'],'dfc_final_eval_loss':d['final_eval_loss'],'eval_loss_delta_dfc_minus_fp16':d['final_eval_loss']-q['final_eval_loss'],'accuracy_delta_dfc_minus_fp16':d['final_accuracy']-q['final_accuracy'],'external_fp16_wall_seconds':q['wall_seconds'],'dfc_wall_seconds':d['wall_seconds'],'claim_boundary':'Secondary baseline changes EF residual precision (FP16 vs DFC logical FP32); not a placement-equivalence comparison and no superiority gate is imposed.'}
+          raw=json.dumps(out,sort_keys=True,separators=(',',':')).encode(); out['result_sha256']=hashlib.sha256(raw).hexdigest(); open(root+'/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fp16-residual-baseline-seed${{ matrix.seed }}
+          path: results/fp16_residual_baseline/seed${{ matrix.seed }}/*.json
+          if-no-files-found: warn
+          retention-days: 30
