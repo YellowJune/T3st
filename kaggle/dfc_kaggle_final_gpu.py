@@ -4,9 +4,10 @@
 Designed to preserve useful evidence even when a later phase fails: every phase
 writes status/log files and the harness exits normally after sealing whatever
 completed. Scientific pass/fail is carried by aggregate JSON, not process exit.
+No credential is read, printed, or stored by this script.
 """
 from __future__ import annotations
-import hashlib, json, os, shutil, subprocess, sys, time
+import hashlib, importlib, importlib.metadata, importlib.util, json, os, shutil, subprocess, sys, time
 from pathlib import Path
 
 WORK=Path('/kaggle/working') if Path('/kaggle/working').exists() else Path.cwd()
@@ -27,6 +28,18 @@ def run(name,cmd,env=None):
 def ensure_repo():
     if REPO.exists(): shutil.rmtree(REPO)
     subprocess.run(['git','clone','--depth','1','--branch',BRANCH,URL,str(REPO)],check=True)
+def ensure_dependencies():
+    """Install only missing high-level packages; never replace torch/CUDA."""
+    required={'transformers':'transformers>=4.45,<5','huggingface_hub':'huggingface_hub>=0.24','numpy':'numpy'}
+    missing=[spec for mod,spec in required.items() if importlib.util.find_spec(mod) is None]
+    if missing:
+        subprocess.run([sys.executable,'-m','pip','install','-q',*missing],check=True)
+    versions={}
+    for pkg in ['torch','transformers','huggingface-hub','numpy','triton']:
+        try: versions[pkg]=importlib.metadata.version(pkg)
+        except importlib.metadata.PackageNotFoundError: versions[pkg]=None
+    write_json(OUT/'python_environment.json',{'python':sys.version,'packages':versions})
+    return versions
 def shasums():
     rows=[]
     for p in sorted(OUT.rglob('*')):
@@ -36,8 +49,10 @@ def shasums():
 
 def main():
     OUT.mkdir(parents=True,exist_ok=True);CK.mkdir(parents=True,exist_ok=True)
-    try: ensure_repo()
+    try: ensure_repo();status_update('clone',True,0,note=BRANCH)
     except Exception as e: status_update('clone',False,0,note=repr(e));return
+    try: versions=ensure_dependencies();status_update('dependencies',True,0,note=json.dumps(versions,sort_keys=True))
+    except Exception as e: status_update('dependencies',False,0,note=repr(e));return
     sys.path.insert(0,str(REPO/'remote'))
     import torch
     gpu_count=torch.cuda.device_count();gpu_names=[torch.cuda.get_device_name(i) for i in range(gpu_count)]
@@ -52,10 +67,12 @@ def main():
     run('ef_gpu_exactness',[py,'remote/dfc_ef_gpu_preflight.py','--coordinates','1000003','--updates','25','--output',str(OUT/'ef_gpu_preflight.json')],{'CUDA_VISIBLE_DEVICES':'0'})
     total=props[0]['total_memory'];coords=max(10_000_000,min(600_000_000,int(total*0.45/14)))
     run('ef_memory',[py,'remote/dfc_ef_memory_benchmark.py','--coordinates',str(coords),'--timing-coordinates','8000000','--repeats','9','--device','cuda','--output',str(OUT/'ef_memory.json')],{'CUDA_VISIBLE_DEVICES':'0'})
-    if props[0]['cc'][0] >= 7:
+    triton_available=importlib.util.find_spec('triton') is not None
+    if props[0]['cc'][0] >= 7 and triton_available:
         run('triton_fused',[py,'remote/benchmark_triton_dfc.py','--sizes','1048576,4194304,16777216,33554432','--repeats','9','--output',str(OUT/'triton.json')],{'CUDA_VISIBLE_DEVICES':'0'})
     else:
-        write_json(OUT/'triton_skipped.json',{'reason':'compute capability below 7.0','gpu':props[0]});status_update('triton_fused',True,0,note='skipped: unsupported pre-Volta capability')
+        reason='compute capability below 7.0' if props[0]['cc'][0] < 7 else 'Triton package unavailable in runtime'
+        write_json(OUT/'triton_skipped.json',{'reason':reason,'gpu':props[0],'triton_installed':triton_available});status_update('triton_fused',True,0,note='skipped: '+reason)
     for method in ['external_ef','dfc_ef']:
         run(f'qwen05b_{method}',[py,'remote/qwen05b_full_ef_kaggle.py','--method',method,'--steps','4','--seq-len','32','--gradient-checkpointing','--output',str(OUT/f'qwen05b_{method}.json')],{'CUDA_VISIBLE_DEVICES':'0','PYTORCH_CUDA_ALLOC_CONF':'expandable_segments:True'})
     partial=OUT/'partial';partial.mkdir(exist_ok=True)
