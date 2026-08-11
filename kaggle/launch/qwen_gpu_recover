@@ -1,4 +1,4 @@
 recover dfc-ef qwen gpu campaign
-requested_utc=2026-08-12T08:23:00+09:00
+requested_utc=2026-08-12T08:26:00+09:00
 launch_run=31546181205
-mode=live-status
+mode=live-status-after-smoke-window
