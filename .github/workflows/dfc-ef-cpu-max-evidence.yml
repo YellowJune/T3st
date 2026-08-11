@@ -1,0 +1,369 @@
+name: DFC-EF maximal free GitHub CPU evidence
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-cpu-max-evidence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qwen-ablation:
+    name: qwen-5way-ablation-seed${{ matrix.seed }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [1901, 1931, 1951]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install CPU ML stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Execute five matched methods on one host
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+        working-directory: remote
+        run: |
+          mkdir -p ../results/cpu_max/ablation
+          for METHOD in fp32_dense low16_dense low16_noef external_ef dfc_ef; do
+            python llm_dfc_ef_qwen_safe.py \
+              --method "$METHOD" --seed '${{ matrix.seed }}' \
+              --model 'Qwen/Qwen2.5-0.5B' --revision '060db6499f32faf8b98477b0a26969ef7d8b9987' \
+              --device cpu --train-last-layers 1 --updates 96 --batch-size 2 --eval-batch-size 4 \
+              --eval-every 16 --keep-ratio 0.125 --ef-chunk 262144 --optimizer-chunk 262144 \
+              --deterministic --output "../results/cpu_max/ablation/${METHOD}_seed${{ matrix.seed }}.json"
+          done
+          python - <<'PY'
+          import hashlib,json
+          s=${{ matrix.seed }}
+          R={m:json.load(open(f'../results/cpu_max/ablation/{m}_seed{s}.json')) for m in ['fp32_dense','low16_dense','low16_noef','external_ef','dfc_ef']}
+          e,d=R['external_ef'],R['dfc_ef']
+          exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss','history','transmitted_values']}
+          assert all(exact.values()), exact
+          P=e['trainable_parameters']; assert e['actual_external_residual_bytes']==4*P and d['actual_external_residual_bytes']==0 and d['dfc_fiber_capacity_bytes']==4*P
+          out={
+            'schema_version':1,'protocol':'dfc-ef-qwen-5way-ablation-v1','seed':s,'status':'PASS',
+            'placement_exact':exact,'trainable_parameters':P,
+            'fp32_dense':{k:R['fp32_dense'][k] for k in ['final_accuracy','final_eval_loss','mean_train_loss','wall_seconds']},
+            'low16_dense':{k:R['low16_dense'][k] for k in ['final_accuracy','final_eval_loss','mean_train_loss','wall_seconds']},
+            'low16_noef':{k:R['low16_noef'][k] for k in ['final_accuracy','final_eval_loss','mean_train_loss','wall_seconds','observed_value_fraction']},
+            'external_ef':{k:e[k] for k in ['final_accuracy','final_eval_loss','mean_train_loss','wall_seconds','observed_value_fraction','actual_external_residual_bytes']},
+            'dfc_ef':{k:d[k] for k in ['final_accuracy','final_eval_loss','mean_train_loss','wall_seconds','observed_value_fraction','dfc_fiber_capacity_bytes']},
+            'low16_contract_delta_eval_loss':R['low16_dense']['final_eval_loss']-R['fp32_dense']['final_eval_loss'],
+            'ef_delta_eval_loss':e['final_eval_loss']-R['low16_noef']['final_eval_loss'],
+            'claim_boundary':'LOW16 numerical-contract and EF-utility ablations are secondary; only external_ef vs dfc_ef is a placement comparison.'
+          }
+          raw=json.dumps(out,sort_keys=True,separators=(',',':')).encode(); out['result_sha256']=hashlib.sha256(raw).hexdigest()
+          open(f'../results/cpu_max/ablation/summary_seed{s}.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpu-max-ablation-seed${{ matrix.seed }}
+          path: results/cpu_max/ablation/*seed${{ matrix.seed }}.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  qwen-resume:
+    name: qwen-checkpoint-resume-exactness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install CPU ML stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Compare uninterrupted vs interrupted-resumed trajectories
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+        working-directory: remote
+        run: |
+          mkdir -p ../results/cpu_max/resume ../checkpoints/cpu_max
+          for METHOD in external_ef dfc_ef; do
+            python llm_dfc_ef_qwen_safe.py --method "$METHOD" --seed 2017 --device cpu --train-last-layers 1 \
+              --updates 64 --batch-size 2 --eval-batch-size 4 --eval-every 16 --keep-ratio 0.125 --deterministic \
+              --output "../results/cpu_max/resume/${METHOD}_uninterrupted.json"
+            python llm_dfc_ef_qwen_safe.py --method "$METHOD" --seed 2017 --device cpu --train-last-layers 1 \
+              --updates 32 --batch-size 2 --eval-batch-size 4 --eval-every 16 --keep-ratio 0.125 --deterministic \
+              --checkpoint "../checkpoints/cpu_max/${METHOD}.pt" --checkpoint-every 16 \
+              --output "../results/cpu_max/resume/${METHOD}_first32.json"
+            python llm_dfc_ef_qwen_safe.py --method "$METHOD" --seed 2017 --device cpu --train-last-layers 1 \
+              --updates 64 --batch-size 2 --eval-batch-size 4 --eval-every 16 --keep-ratio 0.125 --deterministic \
+              --checkpoint "../checkpoints/cpu_max/${METHOD}.pt" --checkpoint-every 16 --resume \
+              --output "../results/cpu_max/resume/${METHOD}_resumed64.json"
+          done
+          python - <<'PY'
+          import hashlib,json
+          out={'schema_version':1,'protocol':'dfc-ef-qwen-checkpoint-resume-v1','methods':{},'status':'PASS'}
+          for m in ['external_ef','dfc_ef']:
+              a=json.load(open(f'../results/cpu_max/resume/{m}_uninterrupted.json')); b=json.load(open(f'../results/cpu_max/resume/{m}_resumed64.json'))
+              checks={k:a[k]==b[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss']}
+              checks['history_suffix_equal']=a['history'][-1]==b['history'][-1]
+              if not all(checks.values()): out['status']='FAIL'
+              out['methods'][m]=checks
+          e=json.load(open('../results/cpu_max/resume/external_ef_resumed64.json')); d=json.load(open('../results/cpu_max/resume/dfc_ef_resumed64.json'))
+          out['placement_after_resume']={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss']}
+          if not all(out['placement_after_resume'].values()): out['status']='FAIL'
+          raw=json.dumps(out,sort_keys=True,separators=(',',':')).encode(); out['result_sha256']=hashlib.sha256(raw).hexdigest()
+          open('../results/cpu_max/resume/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']!='PASS': raise SystemExit('resume gate failed')
+          PY
+          rm -f ../checkpoints/cpu_max/*.pt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpu-max-qwen-resume
+          path: results/cpu_max/resume/*.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  qwen-scale:
+    name: qwen-larger-trainable-state-scale
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install CPU ML stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Run 4 and 8 trainable transformer blocks
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+        working-directory: remote
+        run: |
+          mkdir -p ../results/cpu_max/scale ../checkpoints/cpu_max_scale
+          for L in 4 8; do
+            for METHOD in external_ef dfc_ef; do
+              python llm_dfc_ef_qwen_safe.py --method "$METHOD" --seed 1901 --device cpu --train-last-layers "$L" \
+                --updates 16 --batch-size 1 --eval-batch-size 4 --eval-every 8 --keep-ratio 0.125 --deterministic \
+                --checkpoint "../checkpoints/cpu_max_scale/${METHOD}_L${L}.pt" --checkpoint-every 16 \
+                --output "../results/cpu_max/scale/${METHOD}_L${L}.json"
+            done
+            python - <<PY
+          import json
+          L=$L
+          e=json.load(open(f'../results/cpu_max/scale/external_ef_L{L}.json')); d=json.load(open(f'../results/cpu_max/scale/dfc_ef_L{L}.json'))
+          exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss','history','transmitted_values']}
+          P=e['trainable_parameters']; delta=e['checkpoint_bytes']-d['checkpoint_bytes']
+          out={'schema_version':1,'layers':L,'status':'PASS' if all(exact.values()) else 'FAIL','exact':exact,'trainable_parameters':P,'theoretical_external_residual_bytes':4*P,'external_checkpoint_bytes':e['checkpoint_bytes'],'dfc_checkpoint_bytes':d['checkpoint_bytes'],'checkpoint_delta_bytes':delta,'delta_error_bytes':delta-4*P}
+          open(f'../results/cpu_max/scale/summary_L{L}.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']!='PASS': raise SystemExit('scale exactness failed')
+          PY
+            rm -f ../checkpoints/cpu_max_scale/*.pt
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpu-max-qwen-scale
+          path: results/cpu_max/scale/*.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  memory-frontier:
+    name: controlled-resident-memory-frontier
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Measure physical resident allocation frontier under fixed address-space budget
+        run: |
+          mkdir -p results/cpu_max/frontier
+          cat > /tmp/frontier_worker.py <<'PY'
+          import json,os,resource,sys,time
+          method=sys.argv[1]; p=int(sys.argv[2]); limit=int(sys.argv[3])
+          resource.setrlimit(resource.RLIMIT_AS,(limit,limit))
+          arrays=[]
+          try:
+              n=2 if method=='dfc' else 3
+              for _ in range(n):
+                  a=bytearray(4*p)
+                  # bytearray is zero-initialized and physically faults pages in.
+                  for i in range(0,len(a),4096): a[i]=1
+                  arrays.append(a)
+              rss=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*1024
+              print(json.dumps({'ok':True,'method':method,'p':p,'bytes_requested':n*4*p,'ru_maxrss_bytes':rss}))
+          except (MemoryError,OSError) as e:
+              print(json.dumps({'ok':False,'method':method,'p':p,'error':type(e).__name__}))
+              raise SystemExit(2)
+          PY
+          python - <<'PY'
+          import json,subprocess,sys
+          limit=768*1024*1024
+          def ok(method,p):
+              q=subprocess.run([sys.executable,'/tmp/frontier_worker.py',method,str(p),str(limit)],capture_output=True,text=True,timeout=40)
+              line=(q.stdout.strip().splitlines() or ['{}'])[-1]
+              try: r=json.loads(line)
+              except: r={'ok':False,'stdout':q.stdout[-500:],'stderr':q.stderr[-500:]}
+              return bool(r.get('ok')),r
+          def frontier(method):
+              lo,hi=1_000_000,140_000_000
+              best=None
+              for _ in range(9):
+                  mid=((lo+hi)//2//1_000_000)*1_000_000
+                  yes,row=ok(method,mid)
+                  if yes: best=row; lo=mid+1_000_000
+                  else: hi=mid-1_000_000
+                  if lo>hi: break
+              return best
+          e=frontier('external'); d=frontier('dfc')
+          assert e and d
+          ratio=d['p']/e['p']
+          # Fixed process AS budget has runtime overhead, so require clear movement, not ideal 1.5 exactly.
+          out={'schema_version':1,'protocol':'controlled-resident-memory-frontier-v1','rlimit_as_bytes':limit,'external':e,'dfc':d,'coordinate_frontier_ratio':ratio,'ideal_ratio':1.5,'status':'PASS' if ratio>=1.25 else 'FAIL','claim_boundary':'CPU process resident/allocation frontier under a fixed RLIMIT_AS; not GPU HBM.'}
+          open('results/cpu_max/frontier/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']!='PASS': raise SystemExit('frontier gate failed')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpu-max-memory-frontier
+          path: results/cpu_max/frontier/summary.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  mmap-persistence:
+    name: mmap-persistent-decoder-fiber
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install numpy
+      - name: Encode, flush, close, remap, and verify 25M-coordinate payload
+        run: |
+          mkdir -p results/cpu_max/mmap
+          python - <<'PY'
+          import hashlib,json,os,tempfile,numpy as np,time
+          P=25_000_000; chunk=1_000_000
+          root=tempfile.mkdtemp(); path=os.path.join(root,'moments.bin')
+          common_bytes=8*P; external_bytes=4*P
+          with open(path,'wb') as f: f.truncate(common_bytes)
+          mm=np.memmap(path,dtype=np.uint32,mode='r+',shape=(2,P))
+          rng=np.random.default_rng(260812)
+          src=hashlib.sha256(); sem_before=hashlib.sha256()
+          started=time.perf_counter()
+          for st in range(0,P,chunk):
+              en=min(P,st+chunk); n=en-st
+              hi1=(rng.integers(0,65536,size=n,dtype=np.uint32)<<16)
+              hi2=(rng.integers(0,65536,size=n,dtype=np.uint32)<<16)
+              residual=rng.integers(0,2**32,size=n,dtype=np.uint32)
+              src.update(residual.tobytes()); sem_before.update(hi1.tobytes()); sem_before.update(hi2.tobytes())
+              mm[0,st:en]=hi1 | (residual & np.uint32(0xffff))
+              mm[1,st:en]=hi2 | (residual >> np.uint32(16))
+          mm.flush(); del mm
+          write_seconds=time.perf_counter()-started
+          mm=np.memmap(path,dtype=np.uint32,mode='r',shape=(2,P))
+          got=hashlib.sha256(); sem_after=hashlib.sha256(); started=time.perf_counter()
+          for st in range(0,P,chunk):
+              en=min(P,st+chunk)
+              a=np.asarray(mm[0,st:en]); b=np.asarray(mm[1,st:en])
+              rec=(a & np.uint32(0xffff)) | ((b & np.uint32(0xffff))<<np.uint32(16))
+              got.update(rec.tobytes())
+              sem_after.update((a & np.uint32(0xffff0000)).tobytes()); sem_after.update((b & np.uint32(0xffff0000)).tobytes())
+          read_seconds=time.perf_counter()-started
+          out={'schema_version':1,'protocol':'dfc-low16-mmap-persistence-v1','coordinates':P,'common_moment_file_bytes':os.path.getsize(path),'external_fp32_residual_bytes_avoided':external_bytes,'payload_capacity_bytes':4*P,'payload_sha_equal':src.hexdigest()==got.hexdigest(),'semantic_highword_sha_equal':sem_before.hexdigest()==sem_after.hexdigest(),'payload_sha256':got.hexdigest(),'semantic_sha256':sem_after.hexdigest(),'write_flush_seconds':write_seconds,'remap_verify_seconds':read_seconds}
+          out['status']='PASS' if out['payload_sha_equal'] and out['semantic_highword_sha_equal'] and out['common_moment_file_bytes']==8*P else 'FAIL'
+          open('results/cpu_max/mmap/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']!='PASS': raise SystemExit('mmap gate failed')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpu-max-mmap-persistence
+          path: results/cpu_max/mmap/summary.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  reference-throughput:
+    name: cpu-reference-placement-overhead
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install numpy
+      - name: Benchmark matched external vs DFC reference paths
+        working-directory: remote
+        env:
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+        run: |
+          mkdir -p ../results/cpu_max/throughput
+          python - <<'PY'
+          import json,time,torch
+          from dfc_ef import PackedFP32Residual,stride_error_feedback_dfc_inplace_,stride_error_feedback_external_inplace_
+          from chunked_low16_adamw import DFCLow16AdamWChunked
+          rows=[]
+          torch.set_num_threads(1)
+          for P in [100_000,1_000_000,4_000_000]:
+              def run(method):
+                  p=torch.nn.Parameter(torch.zeros(P,dtype=torch.float32)); opt=DFCLow16AdamWChunked([p],lr=1e-3,enable_fiber=(method=='dfc'),chunk_coordinates=262144)
+                  ch=PackedFP32Residual(opt) if method=='dfc' else None
+                  if ch: ch.zero_()
+                  r=torch.zeros(P,dtype=torch.float32) if method=='external' else None
+                  gen=torch.Generator().manual_seed(9)
+                  # warmup
+                  g=torch.randn(P,generator=gen); gg=g.clone()
+                  if method=='external': stride_error_feedback_external_inplace_(gg,r,stride=8,offset=0,chunk_coordinates=262144)
+                  else: stride_error_feedback_dfc_inplace_(p,gg,ch,stride=8,offset=0,chunk_coordinates=262144)
+                  p.grad=gg; opt.step()
+                  t=time.perf_counter(); steps=8
+                  for s in range(steps):
+                      g=torch.randn(P,generator=gen); gg=g.clone()
+                      if method=='external': stride_error_feedback_external_inplace_(gg,r,stride=8,offset=s%8,chunk_coordinates=262144)
+                      else: stride_error_feedback_dfc_inplace_(p,gg,ch,stride=8,offset=s%8,chunk_coordinates=262144)
+                      p.grad=gg; opt.step()
+                  return time.perf_counter()-t
+              e=run('external'); d=run('dfc')
+              rows.append({'coordinates':P,'steps':8,'external_seconds':e,'dfc_seconds':d,'dfc_overhead_fraction':d/e-1})
+          out={'schema_version':1,'protocol':'dfc-ef-cpu-reference-throughput-v1','rows':rows,'claim_boundary':'Single-thread CPU PyTorch reference implementation; descriptive only, not fused-kernel evidence.'}
+          open('../results/cpu_max/throughput/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpu-max-reference-throughput
+          path: results/cpu_max/throughput/summary.json
+          if-no-files-found: warn
+          retention-days: 30
