@@ -5,6 +5,11 @@ Only trainable layers plus optimizer state are checkpointed. For DFC-SIGN,
 the replay payload is already inside the FP32 second-moment words serialized by
 optimizer.state_dict(); the 512-byte external envelope and RNG states are saved
 separately. Checkpoints are written atomically and can resume mid-task.
+
+Important: ordinary Optimizer.load_state_dict may cast floating optimizer state
+to the parameter dtype. Because the trainable Qwen parameters are FP16 while
+DFC's moments are intentionally FP32 physical containers, resume uses an
+explicit bit-preserving FP32 state restore instead.
 """
 from __future__ import annotations
 import argparse, hashlib, json, os, random, time
@@ -47,9 +52,38 @@ def _restore_rng(state,data_rng,store_rng,device):
     if device.type=='cuda' and 'torch_cuda' in state: torch.cuda.set_rng_state_all(state['torch_cuda'])
 
 
+def _load_optimizer_fp32_exact(opt, saved, params, device):
+    """Restore DFCAdamW state without parameter-dtype casting.
+
+    This intentionally supports the simple single/multi-group DFCAdamW layout
+    used here. Saved FP32 moment words are copied as FP32, preserving payload
+    sign bits exactly even when parameters themselves are FP16.
+    """
+    saved_groups=saved['param_groups']
+    if len(saved_groups)!=len(opt.param_groups): raise RuntimeError('optimizer group count mismatch')
+    flat=[]
+    for group,sg in zip(opt.param_groups,saved_groups):
+        if len(group['params'])!=len(sg['params']): raise RuntimeError('optimizer parameter count mismatch')
+        for k,v in sg.items():
+            if k!='params': group[k]=v
+        flat.extend(zip(group['params'],sg['params']))
+    if len(flat)!=len(params): raise RuntimeError('optimizer flattened parameter mismatch')
+    for p,saved_id in flat:
+        src=saved['state'].get(saved_id,{})
+        dst=opt.state[p]
+        if 'step' in src: dst['step']=int(src['step']) if not torch.is_tensor(src['step']) else int(src['step'].item())
+        for key in ('exp_avg','exp_avg_sq'):
+            if key not in src: raise RuntimeError(f'missing optimizer state {key}')
+            tensor=src[key]
+            if tensor.dtype!=torch.float32: raise RuntimeError(f'checkpoint {key} is not FP32')
+            if tensor.shape!=p.shape: raise RuntimeError(f'checkpoint {key} shape mismatch')
+            dst[key].copy_(tensor.to(device=device,dtype=torch.float32))
+            if dst[key].dtype!=torch.float32: raise RuntimeError(f'restored {key} lost FP32 container')
+
+
 def save_checkpoint(path,model,opt,channel,store,data_rng,store_rng,matrix,losses,progress,meta,device):
     trainable={n:p.detach().cpu().clone() for n,p in _named_trainable(model).items()}
-    obj={"schema":1,"meta":meta,"trainable":trainable,"optimizer":opt.state_dict(),"external":bytes(channel.external),"matrix":matrix,"losses":losses,"progress":progress,"rng":_rng_state(data_rng,store_rng,device),"store_digest":store.digest(),"store_count":store.count,"store_seen":store.seen}
+    obj={"schema":2,"meta":meta,"trainable":trainable,"optimizer":opt.state_dict(),"external":bytes(channel.external),"matrix":matrix,"losses":losses,"progress":progress,"rng":_rng_state(data_rng,store_rng,device),"store_digest":store.digest(),"store_count":store.count,"store_seen":store.seen}
     _atomic_torch_save(obj,Path(path))
 
 
@@ -81,11 +115,12 @@ def run(args):
     ckpath=Path(args.checkpoint) if args.checkpoint else None
     if ckpath and ckpath.exists() and args.resume:
         ck=torch.load(ckpath,map_location='cpu',weights_only=False)
+        if ck.get('schema') not in (1,2): raise RuntimeError('unsupported checkpoint schema')
         for k in ['model','revision','method','seed','train_last_layers','external_bytes','steps_per_task','model_dtype']:
             if ck['meta'][k]!=meta[k]:raise RuntimeError(f'checkpoint protocol mismatch: {k}')
         if ck['meta']['resolved']!=resolved:raise RuntimeError('resolved hub revision changed')
         for n,t in ck['trainable'].items():named[n].data.copy_(t.to(device=device,dtype=named[n].dtype))
-        opt.load_state_dict(ck['optimizer'])
+        _load_optimizer_fp32_exact(opt,ck['optimizer'],trainable,device)
         fiber=TorchSignFiberChannel(opt) if args.method=='dfc_sign_derpp' else None;channel=CombinedByteChannel(args.external_bytes,fiber);channel.external[:]=ck['external']
         store_rng=np.random.default_rng();data_rng=np.random.default_rng();store=_store_without_init(channel,store_rng)
         matrix=np.asarray(ck['matrix'],dtype=np.float64);losses=list(ck['losses']);progress=dict(ck['progress']);_restore_rng(ck['rng'],data_rng,store_rng,device)
@@ -111,8 +146,8 @@ def run(args):
         matrix[ti]=np.asarray(evaluate(model,tok,tasks,device,ti))
         if ckpath:save_checkpoint(ckpath,model,opt,channel,store,data_rng,store_rng,matrix,losses,{"task":ti+1,"step":0,"updates":updates},meta,device)
     complete=(updates>=args.steps_per_task*len(tasks))
-    if not complete:return {"schema_version":1,"protocol":"qwen-partial-resume-v1","complete":False,"resumed":resumed,"updates":updates,"checkpoint":str(ckpath)}
-    result={"schema_version":1,"protocol":"qwen-partial-resume-v1","complete":True,"resumed":resumed,"method":args.method,"seed":args.seed,"model":args.model,"requested_revision":args.revision,"resolved_hub_revision":resolved,"device":str(device),"model_dtype":args.model_dtype,"torch":torch.__version__,"trainable_parameters":int(trainable_n),"total_model_parameters":int(sum(p.numel() for p in model.parameters())),"train_last_layers":args.train_last_layers,"external_bytes":args.external_bytes,"sign_fiber_bytes":0 if fiber is None else fiber.byte_capacity,"record_bytes":RECORD_BYTES,"record_capacity":store.capacity_records,"records_final":store.count,"records_seen":store.seen,"store_sha256":store.digest(),"batch_size":2,"steps_per_task":args.steps_per_task,"tasks":len(tasks),"updates":updates,"accuracy_matrix":matrix.tolist(),**metrics(matrix),"mean_training_loss":float(np.mean(losses)),"wall_seconds_this_invocation":time.perf_counter()-started}
+    if not complete:return {"schema_version":2,"protocol":"qwen-partial-resume-v2","complete":False,"resumed":resumed,"updates":updates,"checkpoint":str(ckpath)}
+    result={"schema_version":2,"protocol":"qwen-partial-resume-v2","complete":True,"resumed":resumed,"method":args.method,"seed":args.seed,"model":args.model,"requested_revision":args.revision,"resolved_hub_revision":resolved,"device":str(device),"model_dtype":args.model_dtype,"torch":torch.__version__,"trainable_parameters":int(trainable_n),"total_model_parameters":int(sum(p.numel() for p in model.parameters())),"train_last_layers":args.train_last_layers,"external_bytes":args.external_bytes,"sign_fiber_bytes":0 if fiber is None else fiber.byte_capacity,"record_bytes":RECORD_BYTES,"record_capacity":store.capacity_records,"records_final":store.count,"records_seen":store.seen,"store_sha256":store.digest(),"batch_size":2,"steps_per_task":args.steps_per_task,"tasks":len(tasks),"updates":updates,"accuracy_matrix":matrix.tolist(),**metrics(matrix),"mean_training_loss":float(np.mean(losses)),"wall_seconds_this_invocation":time.perf_counter()-started}
     canonical=json.dumps(result,sort_keys=True,separators=(',',':'),allow_nan=True).encode();result['result_sha256']=hashlib.sha256(canonical).hexdigest();return result
 
 
