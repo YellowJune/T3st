@@ -1,0 +1,154 @@
+name: DFC-EF Qwen CPU paired actual-model gate
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-qwen-cpu-paired.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paired-qwen:
+    name: qwen-cpu-${{ matrix.method }}-seed${{ matrix.seed }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        method: [external_ef, dfc_ef]
+        seed: [1901, 1931, 1951]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned CPU stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Execute paired actual-model path
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
+        working-directory: remote
+        run: |
+          mkdir -p ../results/free_cpu_qwen ../checkpoints/free_cpu_qwen
+          python llm_dfc_ef_qwen_safe.py \
+            --method '${{ matrix.method }}' \
+            --seed '${{ matrix.seed }}' \
+            --model 'Qwen/Qwen2.5-0.5B' \
+            --revision '060db6499f32faf8b98477b0a26969ef7d8b9987' \
+            --device cpu \
+            --train-last-layers 1 \
+            --updates 64 \
+            --batch-size 2 \
+            --eval-batch-size 4 \
+            --eval-every 16 \
+            --keep-ratio 0.125 \
+            --ef-chunk 262144 \
+            --optimizer-chunk 262144 \
+            --deterministic \
+            --checkpoint '../checkpoints/free_cpu_qwen/${{ matrix.method }}_seed${{ matrix.seed }}.pt' \
+            --checkpoint-every 32 \
+            --progress-output '../results/free_cpu_qwen/progress_${{ matrix.method }}_seed${{ matrix.seed }}.json' \
+            --output '../results/free_cpu_qwen/qwen_${{ matrix.method }}_seed${{ matrix.seed }}.json'
+          rm -f ../checkpoints/free_cpu_qwen/${{ matrix.method }}_seed${{ matrix.seed }}.pt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qwen-cpu-${{ matrix.method }}-seed${{ matrix.seed }}
+          path: |
+            results/free_cpu_qwen/qwen_${{ matrix.method }}_seed${{ matrix.seed }}.json
+            results/free_cpu_qwen/progress_${{ matrix.method }}_seed${{ matrix.seed }}.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate-gate:
+    name: paired-bitwise-and-storage-gate
+    needs: paired-qwen
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: qwen-cpu-*
+          path: rows
+          merge-multiple: true
+      - name: Audit paired trajectories and checkpoint storage
+        run: |
+          python - <<'PY'
+          import glob, hashlib, json, os, statistics
+          paths=sorted(glob.glob('rows/qwen_*.json'))
+          rows=[json.load(open(p)) for p in paths]
+          methods={'external_ef','dfc_ef'}
+          seeds=[1901,1931,1951]
+          by={s:{} for s in seeds}
+          for r in rows:
+              assert r['protocol']=='qwen-dfc-ef-blocktopk-v1'
+              s=int(r['seed']); m=r['method']
+              assert s in by and m in methods and m not in by[s]
+              by[s][m]=r
+          audit=[]
+          for s in seeds:
+              assert set(by[s])==methods, (s,by[s].keys())
+              e=by[s]['external_ef']; d=by[s]['dfc_ef']
+              common=('model','resolved_hub_revision','device','parameter_dtype','total_model_parameters','trainable_parameters','train_last_layers','optimizer_semantics','compressor','keep_ratio','updates','batch_size','seq_len','lr','weight_decay','grad_clip','ef_chunk_coordinates','optimizer_chunk_coordinates','transmitted_values','dense_gradient_values')
+              for k in common: assert e[k]==d[k], (s,k,e[k],d[k])
+              exact={
+                'parameter_sha_equal': e['parameter_sha256']==d['parameter_sha256'],
+                'semantic_optimizer_sha_equal': e['semantic_optimizer_sha256']==d['semantic_optimizer_sha256'],
+                'logical_residual_sha_equal': e['logical_residual_sha256']==d['logical_residual_sha256'],
+                'final_accuracy_equal': e['final_accuracy']==d['final_accuracy'],
+                'final_eval_loss_equal': e['final_eval_loss']==d['final_eval_loss'],
+              }
+              assert all(exact.values()), (s,exact)
+              P=int(e['trainable_parameters'])
+              assert int(e['actual_external_residual_bytes'])==4*P
+              assert int(d['actual_external_residual_bytes'])==0
+              assert int(d['dfc_fiber_capacity_bytes'])==4*P
+              assert int(d['model_scale_external_residual_removed_bytes'])==4*P
+              ce=int(e['checkpoint_bytes']); cd=int(d['checkpoint_bytes'])
+              checkpoint_delta=ce-cd
+              # torch.save metadata adds small non-payload differences; require the
+              # measured delta to be within 2 MiB of the exact 4P payload law.
+              assert abs(checkpoint_delta-4*P) <= 2*1024*1024, (s,checkpoint_delta,4*P)
+              audit.append({
+                'seed':s,'trainable_parameters':P,'theoretical_external_residual_bytes':4*P,
+                'external_checkpoint_bytes':ce,'dfc_checkpoint_bytes':cd,
+                'measured_checkpoint_delta_bytes':checkpoint_delta,**exact,
+                'final_accuracy':d['final_accuracy'],'final_eval_loss':d['final_eval_loss'],
+                'transmitted_values':d['transmitted_values'],
+                'parameter_sha256':d['parameter_sha256'],
+                'semantic_optimizer_sha256':d['semantic_optimizer_sha256'],
+                'logical_residual_sha256':d['logical_residual_sha256'],
+              })
+          summary={
+            'schema_version':1,
+            'protocol':'qwen-dfc-ef-blocktopk-v1-cpu-paired-gate',
+            'status':'PASS',
+            'seeds':seeds,
+            'n_pairs':len(audit),
+            'pairs':audit,
+            'mean_checkpoint_delta_bytes':statistics.mean(x['measured_checkpoint_delta_bytes'] for x in audit),
+            'mean_theoretical_external_residual_bytes':statistics.mean(x['theoretical_external_residual_bytes'] for x in audit),
+            'claim_boundary':'Actual pretrained Qwen CPU placement-equivalence and persistent-storage evidence; not CUDA/HBM evidence.',
+          }
+          raw=json.dumps(summary,sort_keys=True,separators=(',',':')).encode()
+          summary['result_sha256']=hashlib.sha256(raw).hexdigest()
+          open('qwen_cpu_paired_summary.json','w').write(json.dumps(summary,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(summary,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qwen-cpu-paired-summary
+          path: qwen_cpu_paired_summary.json
+          if-no-files-found: warn
+          retention-days: 30
