@@ -21,7 +21,7 @@ OUT.mkdir(parents=True, exist_ok=True); CKPT.mkdir(parents=True, exist_ok=True)
 BUDGET_HOURS = float(os.environ.get("DFC_KAGGLE_BUDGET_HOURS", "10.25"))
 RESERVE_SECONDS = 20 * 60
 T0 = time.time(); DEADLINE = T0 + BUDGET_HOURS * 3600
-MANIFEST = {"schema_version": 2, "protocol": "dfc-ef-kaggle-qwen-campaign-v2-p100-compatible",
+MANIFEST = {"schema_version": 3, "protocol": "dfc-ef-kaggle-qwen-campaign-v3-p100-textonly",
             "budget_hours": BUDGET_HOURS, "jobs": []}
 
 
@@ -148,8 +148,6 @@ def archive(status, error=None):
 
 
 try:
-    # Environment + P100 compatibility. Kaggle currently may assign a P100 even
-    # when a T4 class is requested; current default wheels can omit sm_60.
     shell("nvidia_smi", ["nvidia-smi"], required=True)
     gpu_name = subprocess.check_output(
         ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], text=True
@@ -164,6 +162,12 @@ try:
     shell("torch_preflight_after", [sys.executable, "-c",
           "import torch,json; d={'torch':torch.__version__,'cuda':torch.version.cuda,'name':torch.cuda.get_device_name(0),'capability':torch.cuda.get_device_capability(0),'arch_list':torch.cuda.get_arch_list()}; print(json.dumps(d)); assert torch.cuda.is_available(); assert torch.cuda.get_device_capability(0)[0]!=6 or 'sm_60' in torch.cuda.get_arch_list()"], required=True)
 
+    # Kaggle's preinstalled torchvision can be ABI-incompatible after replacing
+    # torch for Pascal support. Qwen is text-only, so remove optional vision/audio
+    # packages rather than letting transformers import a stale torchvision::nms.
+    shell("remove_optional_binary_stacks", [sys.executable,"-m","pip","uninstall","-y",
+          "torchvision","torchaudio"], required=False)
+
     if CHECKOUT.exists(): shutil.rmtree(CHECKOUT)
     shell("clone", ["git","clone","--depth","1","--branch",BRANCH,REPO,str(CHECKOUT)], required=True)
     commit = subprocess.check_output(["git","rev-parse","HEAD"],cwd=CHECKOUT,text=True).strip()
@@ -171,13 +175,16 @@ try:
 
     shell("install_model_stack", [sys.executable,"-m","pip","install","-q",
           "transformers>=4.51,<5","huggingface_hub>=0.30,<1","sentencepiece","accelerate","numpy"], required=True)
+    shell("qwen_import_preflight", [sys.executable,"-c",
+          "import torch,transformers,json; from transformers import Qwen2ForCausalLM,AutoTokenizer; print(json.dumps({'torch':torch.__version__,'transformers':transformers.__version__,'qwen_class':Qwen2ForCausalLM.__name__}))"], required=True)
 
     # A: checkpointed smoke: real-model restart + persistent-state delta.
     qwen_job("smoke_external", "external_ef", 1801, layers=2, updates=16, batch=2, checkpoint=True, required=True)
     qwen_job("smoke_dfc", "dfc_ef", 1801, layers=2, updates=16, batch=2, checkpoint=True, required=True)
     compare_pair("smoke", "smoke_external", "smoke_dfc")
 
-    # B: primary all-transformer-block placement pairs, 3 seeds.
+    # B: strongest primary free-GPU result: all transformer blocks trainable,
+    # three independent sealed seeds.
     for seed in (1901, 1931, 1951):
         e = f"primary_external_{seed}"; d = f"primary_dfc_{seed}"
         qwen_job(e, "external_ef", seed, layers=0, updates=128, batch=2, required=(seed==1901))
@@ -188,7 +195,7 @@ try:
     for method in ("fp32_dense", "low16_dense", "low16_noef"):
         qwen_job(f"ablation_{method}", method, 1901, layers=0, updates=128, batch=2)
 
-    # D: scale extensions only if time remains; failures are retained.
+    # D: scale extensions only if free time remains.
     if enough(75*60):
         for method in ("external_ef", "dfc_ef"):
             qwen_job(f"qwen15b_{method}", method, 2111, model="Qwen/Qwen2.5-1.5B",
