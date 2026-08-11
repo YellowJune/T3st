@@ -1,0 +1,71 @@
+name: DFC-EF Qwen actual RSS scaling
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-qwen-rss-scale.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rss-scale:
+    name: qwen-rss-${{ matrix.layers }}blocks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    strategy:
+      fail-fast: false
+      matrix:
+        layers: [12, 16]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Run same-host pair and preserve any resource frontier
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+        working-directory: remote
+        run: |
+          ROOT='../results/qwen_rss_scale/L${{ matrix.layers }}'; mkdir -p "$ROOT"
+          set +e
+          for METHOD in dfc_ef external_ef; do
+            /usr/bin/time -v -o "$ROOT/time_${METHOD}.txt" timeout 3000 \
+              python llm_dfc_ef_qwen_safe.py --method "$METHOD" --seed 1901 --device cpu --train-last-layers '${{ matrix.layers }}' \
+              --updates 4 --batch-size 1 --eval-batch-size 4 --eval-every 4 --keep-ratio 0.125 --deterministic \
+              --output "$ROOT/${METHOD}.json"
+            echo "$?" > "$ROOT/${METHOD}.rc"
+          done
+          set -e
+          L='${{ matrix.layers }}' python - <<'PY'
+          import json,os,re
+          L=int(os.environ['L']); root=f'../results/qwen_rss_scale/L{L}'
+          def rc(m): return int(open(f'{root}/{m}.rc').read())
+          def rss(m):
+              t=open(f'{root}/time_{m}.txt').read(); z=re.search(r'Maximum resident set size \(kbytes\):\s*(\d+)',t); return int(z.group(1))*1024 if z else None
+          rcs={m:rc(m) for m in ['dfc_ef','external_ef']}; out={'schema_version':1,'protocol':'qwen-dfc-ef-rss-scaling-v1','layers':L,'resource_status':rcs,'rss_bytes':{m:rss(m) for m in rcs}}
+          if all(v==0 for v in rcs.values()):
+              e=json.load(open(f'{root}/external_ef.json')); d=json.load(open(f'{root}/dfc_ef.json')); exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss','transmitted_values']}; P=e['trainable_parameters']; delta=out['rss_bytes']['external_ef']-out['rss_bytes']['dfc_ef']; out.update({'status':'PASS' if all(exact.values()) else 'FAIL','exact':exact,'trainable_parameters':P,'theoretical_external_residual_bytes':4*P,'measured_peak_rss_delta_bytes':delta,'rss_delta_fraction_of_4P':delta/(4*P)})
+          else:
+              out['status']='RESOURCE_FRONTIER'; out['claim_boundary']='At least one actual-model path exceeded free-runner resources; no numerical inference from missing pair.'
+          open(f'{root}/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']=='FAIL': raise SystemExit('scientific mismatch')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qwen-rss-scale-${{ matrix.layers }}blocks
+          path: results/qwen_rss_scale/L${{ matrix.layers }}/*
+          if-no-files-found: warn
+          retention-days: 30
