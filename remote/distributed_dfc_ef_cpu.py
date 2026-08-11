@@ -22,7 +22,9 @@ def sem_sha(opt, p):
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--method',choices=['external','dfc'],required=True); ap.add_argument('--coordinates',type=int,default=250000); ap.add_argument('--steps',type=int,default=32); ap.add_argument('--output-dir',required=True); args=ap.parse_args()
-    dist.init_process_group('gloo'); rank=dist.get_rank(); world=dist.get_world_size(); assert world==2
+    dist.init_process_group('gloo'); rank=dist.get_rank(); world=dist.get_world_size()
+    if world < 2:
+        raise RuntimeError('distributed validation requires at least two ranks')
     torch.set_num_threads(1); torch.manual_seed(7000)
     p=torch.nn.Parameter(torch.randn(args.coordinates,dtype=torch.float32))
     opt=DFCLow16AdamWChunked([p],lr=3e-4,enable_fiber=args.method=='dfc',chunk_coordinates=65536)
