@@ -1,0 +1,41 @@
+name: Package DFC-EF full-transformer stress source
+
+on:
+  push:
+    branches: [dfc-h200-final]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout full-transformer execution commit
+        uses: actions/checkout@v4
+        with:
+          ref: 18a01f4ce014de8c04633282bd3083f1acf630cb
+      - name: Stage executed source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p executed/remote executed/workflows
+          cp remote/dfc_ef.py executed/remote/
+          cp remote/block_topk_ef.py executed/remote/
+          cp remote/chunked_low16_adamw.py executed/remote/
+          cp remote/torch_fiber.py executed/remote/
+          cp remote/llm_dfc_ef_qwen.py executed/remote/
+          cp remote/llm_dfc_ef_qwen_safe.py executed/remote/
+          cp remote/kaggle_checkpoint.py executed/remote/
+          cp .github/workflows/dfc-ef-qwen-full-checkpoint.yml executed/workflows/
+          printf '%s\n' 18a01f4ce014de8c04633282bd3083f1acf630cb > executed/EXECUTION_COMMIT.txt
+          (cd executed && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum) > executed/SHA256SUMS.txt
+          (cd executed && sha256sum -c SHA256SUMS.txt)
+      - name: Upload source
+        uses: actions/upload-artifact@v4
+        with:
+          name: dfc-ef-full-transformer-source-18a01f4
+          path: executed
+          if-no-files-found: error
+          retention-days: 30
