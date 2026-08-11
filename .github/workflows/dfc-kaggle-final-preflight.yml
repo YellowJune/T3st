@@ -8,7 +8,7 @@ on:
 jobs:
   cpu-preflight:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -23,21 +23,36 @@ jobs:
         run: |
           python -m py_compile remote/dfc_ef_residual.py
           python -m py_compile remote/dfc_ef_memory_benchmark.py
+          python -m py_compile remote/dfc_ef_gpu_preflight.py
+          python -m py_compile remote/qwen05b_full_ef_kaggle.py
           python -m py_compile remote/llm_continual_qwen_partial_resume.py
+          python -m py_compile remote/aggregate_kaggle_final.py
+          python -m py_compile remote/universal_fibers_kaggle.py
+          python -m py_compile remote/universal_fibers_cuda.py
+          python -m py_compile kaggle/dfc_kaggle_final_gpu.py
+          python -m py_compile kaggle_tpu/dfc_kaggle_tpu.py
       - name: DFC-EF paired exactness and checkpoint gate
         run: PYTHONPATH=remote python remote/test_dfc_ef_residual.py
       - name: Replay-store checkpoint restoration gate
         run: PYTHONPATH=remote python remote/test_llm_resume_store.py
-      - name: State-scale accounting smoke test
+      - name: Universal non-optimizer DFC rerun
         run: |
           mkdir -p results/kaggle_preflight
+          PYTHONPATH=remote python remote/universal_fibers_kaggle.py --out results/kaggle_preflight/universal_cpu.json
+          python - <<'PY'
+          import json
+          d=json.load(open('results/kaggle_preflight/universal_cpu.json'))
+          assert d['total_failures']==0
+          print('universal CPU rerun: PASS')
+          PY
+      - name: State-scale accounting smoke test
+        run: |
           PYTHONPATH=remote python remote/dfc_ef_memory_benchmark.py \
             --device cpu --coordinates 100003 --timing-coordinates 4099 --repeats 3 \
             --output results/kaggle_preflight/memory_smoke.json
           python - <<'PY'
           import json
-          p='results/kaggle_preflight/memory_smoke.json'
-          d=json.load(open(p))
+          d=json.load(open('results/kaggle_preflight/memory_smoke.json'))
           assert d['measured_eliminated_bytes_per_coordinate']==4.0
           assert d['exactness_timing']['payload_bit_failures']==0
           assert d['exactness_timing']['semantic_bit_failures']==0
@@ -46,4 +61,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: dfc-kaggle-final-preflight
-          path: results/kaggle_preflight/memory_smoke.json
+          path: results/kaggle_preflight/
