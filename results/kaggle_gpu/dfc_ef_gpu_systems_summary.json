@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "evidence_type": "measured-kaggle-cuda-systems",
+  "predeclared_protocol": "docs/DFC_EF_FREE_VALIDATION_PROTOCOL.md",
+  "source_commit": "edc10ad783aabc2354ef5f1a906634122816d659",
+  "github_run_id": 31545709052,
+  "github_artifact_id": 9122505694,
+  "github_artifact_sha256": "acb21bd18be52e7d68b23e49c779ba4d427a5c4b3eeb2490e5f500d9b4192820",
+  "device": "Tesla P100-PCIE-16GB",
+  "torch": "2.7.1+cu126",
+  "cuda": "12.6",
+  "h1_cuda_exactness": {
+    "pass": true,
+    "coordinates": 1048579,
+    "steps": 32,
+    "chunk_coordinates": 131071,
+    "dtypes": ["torch.float32", "torch.float16"],
+    "fp32_dfc_checkpoint_bytes": 12585249,
+    "fp16_dfc_checkpoint_bytes": 10488097,
+    "checkpoint_restart_in_path": true
+  },
+  "h3_measured_allocation_rows": [
+    {"coordinates":1048576,"steady_saved_bytes":4194304,"theoretical_4p_bytes":4194304,"peak_saved_bytes":-4194304,"external_median_ms":0.6813120245933533,"dfc_median_ms":0.944320023059845,"dfc_overhead_fraction":0.38603164038308324,"trajectory_digest_equal":true},
+    {"coordinates":4194304,"steady_saved_bytes":16777216,"theoretical_4p_bytes":16777216,"peak_saved_bytes":8388608,"external_median_ms":2.2240641117095947,"dfc_median_ms":3.46342396736145,"dfc_overhead_fraction":0.557250058182533,"trajectory_digest_equal":true},
+    {"coordinates":16777216,"steady_saved_bytes":67108864,"theoretical_4p_bytes":67108864,"peak_saved_bytes":58720256,"external_median_ms":8.408096313476562,"dfc_median_ms":13.299776077270508,"dfc_overhead_fraction":0.5817820802020932,"trajectory_digest_equal":true},
+    {"coordinates":33554432,"steady_saved_bytes":134217728,"theoretical_4p_bytes":134217728,"peak_saved_bytes":125829120,"external_median_ms":16.46326446533203,"dfc_median_ms":26.579776763916016,"dfc_overhead_fraction":0.6144900557169026,"trajectory_digest_equal":true},
+    {"coordinates":67108864,"steady_saved_bytes":268435456,"theoretical_4p_bytes":268435456,"peak_saved_bytes":260046848,"external_median_ms":32.919551849365234,"dfc_median_ms":53.16377639770508,"dfc_overhead_fraction":0.6149605146805848,"trajectory_digest_equal":true}
+  ],
+  "h3_steady_allocation_law": "external steady allocation minus DFC steady allocation equals exactly 4P bytes at every measured scale",
+  "h4_frontier": {
+    "total_hbm_bytes": 17059545088,
+    "resolution_coordinates": 4194304,
+    "external_max_success_coordinates": 1371537408,
+    "dfc_max_success_coordinates": 2059403264,
+    "frontier_ratio_dfc_over_external": 1.5015290519877675,
+    "predeclared_ratio_threshold": 1.25,
+    "crossover_coordinates": 1375731712,
+    "crossover_external_cuda_oom": true,
+    "crossover_dfc_success": true,
+    "crossover_dfc_allocated_bytes": 11005853696,
+    "crossover_dfc_theoretical_8p_bytes": 11005853696,
+    "predeclared_h4_pass": true
+  },
+  "performance_disclosure": {
+    "deployment_speed_claim": false,
+    "observed_reference_overhead_range_fraction": [0.38603164038308324,0.6149605146805848],
+    "note": "The bounded-workspace PyTorch reference DFC path is materially slower than external EF on P100. This is retained as a negative systems result; fusion/kernel optimization remains necessary before a deployment-speed claim."
+  },
+  "claim_boundary": "H1/H3/H4 are real CUDA/P100 measurements. State-only H4 excludes model weights, gradients and activations by predeclared design. Communication reduction belongs to the matched compressor, not DFC."
+}
