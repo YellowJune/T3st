@@ -5,6 +5,7 @@ on:
     branches: [dfc-h200-final]
     paths:
       - '.github/workflows/dfc-ef-qwen3b-free.yml'
+      - 'remote/llm_dfc_ef_cpu_bf16_safe.py'
   workflow_dispatch:
 
 permissions:
@@ -47,7 +48,7 @@ jobs:
           import hashlib,json,os
           root='../results/qwen3b_free'; ms=['dfc_ef','external_ef']; rcs={m:int(open(f'{root}/{m}.rc').read()) for m in ms}; out={'schema_version':1,'protocol':'qwen2p5-3b-free-cpu-bf16-attempt-v1','resource_status':rcs}
           if all(v==0 for v in rcs.values()):
-              e=json.load(open(root+'/external_ef.json')); d=json.load(open(root+'/dfc_ef.json')); exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss','transmitted_values']}; P=e['trainable_parameters']; storage=e['actual_external_residual_bytes']==4*P and d['actual_external_residual_bytes']==0 and d['dfc_fiber_capacity_bytes']==4*P; out.update({'status':'PASS' if all(exact.values()) and storage else 'FAIL','exact':exact,'storage_ok':storage,'resolved_revision':e['resolved_hub_revision'],'total_model_parameters':e['total_model_parameters'],'trainable_parameters':P,'external_residual_bytes':4*P,'parameter_dtype':e['parameter_dtype'],'external_wall_seconds':e['wall_seconds'],'dfc_wall_seconds':d['wall_seconds'],'claim_boundary':'Actual Qwen2.5-3B CPU BF16 model pair; CPU execution, not GPU/HBM evidence.'})
+              e=json.load(open(root+'/external_ef.json')); d=json.load(open(root+'/dfc_ef.json')); exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss','transmitted_values']}; P=e['trainable_parameters']; storage=e['actual_external_residual_bytes']==4*P and d['actual_external_residual_bytes']==0 and d['dfc_fiber_capacity_bytes']==4*P; out.update({'status':'PASS' if all(exact.values()) and storage else 'FAIL','exact':exact,'storage_ok':storage,'resolved_revision':e['resolved_hub_revision'],'total_model_parameters':e['total_model_parameters'],'trainable_parameters':P,'external_residual_bytes':4*P,'parameter_dtype':e['parameter_dtype'],'external_wall_seconds':e['wall_seconds'],'dfc_wall_seconds':d['wall_seconds'],'claim_boundary':'Actual Qwen2.5-3B CPU BF16 full 32-example evaluation pair, four optimizer updates; CPU execution, not GPU/HBM evidence.'})
           else:
               out.update({'status':'RESOURCE_OR_KERNEL_LIMIT','claim_boundary':'Free-runner 3B BF16 attempt retained; no positive claim if both matched paths did not complete.'})
           raw=json.dumps(out,sort_keys=True,separators=(',',':')).encode(); out['result_sha256']=hashlib.sha256(raw).hexdigest(); open(root+'/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
