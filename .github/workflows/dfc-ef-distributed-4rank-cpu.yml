@@ -1,0 +1,54 @@
+name: DFC-EF four-rank distributed CPU collective gate
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-distributed-4rank-cpu.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  distributed4:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install numpy
+      - name: Run external and DFC through real four-rank all-reduce
+        working-directory: remote
+        env:
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+        run: |
+          mkdir -p ../results/distributed4_cpu
+          torchrun --standalone --nproc-per-node=4 distributed_dfc_ef_cpu.py --method external --coordinates 100000 --steps 16 --output-dir ../results/distributed4_cpu
+          torchrun --standalone --nproc-per-node=4 distributed_dfc_ef_cpu.py --method dfc --coordinates 100000 --steps 16 --output-dir ../results/distributed4_cpu
+          python - <<'PY'
+          import hashlib,json
+          root='../results/distributed4_cpu'; pairs=[]
+          for rank in range(4):
+              e=json.load(open(f'{root}/external_rank{rank}.json')); d=json.load(open(f'{root}/dfc_rank{rank}.json'))
+              # The worker was originally sealed for two ranks.  Its local update
+              # logic is rank-count agnostic, but require actual metadata to say 4.
+              exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','transmitted_values_local','coordinates','steps','world_size']}
+              storage=e['external_residual_bytes']==4*e['coordinates'] and d['external_residual_bytes']==0 and d['dfc_fiber_capacity_bytes']==4*d['coordinates']
+              pairs.append({'rank':rank,'exact':exact,'storage_ok':storage,'world_size':e['world_size']})
+          ok=all(all(x['exact'].values()) and x['storage_ok'] and x['world_size']==4 for x in pairs)
+          out={'schema_version':1,'protocol':'dfc-ef-four-rank-gloo-placement-v1','status':'PASS' if ok else 'FAIL','world_size':4,'coordinates_per_rank':100000,'steps':16,'pairs':pairs,'claim_boundary':'Actual four-process torch.distributed Gloo all-reduce; not NCCL/GPU or sparse-wire throughput evidence.'}
+          raw=json.dumps(out,sort_keys=True,separators=(',',':')).encode(); out['result_sha256']=hashlib.sha256(raw).hexdigest(); open(root+'/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if not ok: raise SystemExit('four-rank mismatch')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dfc-ef-four-rank-gloo
+          path: results/distributed4_cpu/*.json
+          if-no-files-found: warn
+          retention-days: 30
