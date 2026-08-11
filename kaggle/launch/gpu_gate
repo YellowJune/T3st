@@ -1,5 +1,5 @@
 launch dfc-ef gpu systems gate
 predeclared_protocol=docs/DFC_EF_FREE_VALIDATION_PROTOCOL.md
-requested_utc=2026-08-11T22:29:30Z
+requested_utc=2026-08-11T22:31:00Z
 mode=sealed_cuda_hbm_frontier
-attempt=2
+attempt=3
