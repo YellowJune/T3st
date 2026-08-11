@@ -10,12 +10,18 @@ from torch_fiber import DFCLow16AdamW, HIGH16_MASK_I32, LOW16_MASK_I32
 
 
 class DFCLow16AdamWChunked(DFCLow16AdamW):
-    """Numerically matched DFCLow16AdamW with O(chunk) transient workspace.
+    """BF16-high AdamW with O(chunk) transient workspace.
 
-    The parent optimizer is the semantic reference. This implementation performs
-    the same per-coordinate transition in flattened chunks so a very large
-    parameter tensor does not create several parameter-sized FP32 temporaries.
-    ``enable_fiber`` has the same meaning as in the parent class.
+    Moment evolution matches ``DFCLow16AdamW`` exactly: each FP32 moment is
+    decoded by clearing its low 16 physical bits, updated in FP32, and encoded
+    back with either zero or preserved payload low words.
+
+    For FP16/BF16 *parameters*, the final Adam ratio is evaluated in FP32 and
+    then cast to parameter dtype before the parameter add. This avoids the
+    1e-8 epsilon underflow/0-div-0 failure that occurs when a sparse gradient
+    leaves a moment at zero and the denominator is prematurely cast to FP16.
+    For FP32 parameters the original addcdiv transition is retained.
+    External-EF and DFC-EF use this identical implementation.
     """
 
     def __init__(self, *args, chunk_coordinates: int = 1_048_576, **kwargs):
@@ -75,18 +81,21 @@ class DFCLow16AdamWChunked(DFCLow16AdamW):
                     if self.enable_fiber:
                         fnew = torch.bitwise_or(fnew, fpayload)
                         snew = torch.bitwise_or(snew, spayload)
-                    fb.copy_(fnew); sb.copy_(snew)
+                    fb.copy_(fnew)
+                    sb.copy_(snew)
 
                     first_use = torch.bitwise_and(fb, HIGH16_MASK_I32).view(torch.float32)
                     second_use = torch.bitwise_and(sb, HIGH16_MASK_I32).view(torch.float32)
                     denominator = second_use.sqrt().div_(bias2_sqrt).add_(eps)
                     if weight_decay:
                         pf.mul_(1.0 - lr * weight_decay)
-                    pf.addcdiv_(
-                        first_use.to(dtype=parameter.dtype),
-                        denominator.to(dtype=parameter.dtype),
-                        value=-step_size,
-                    )
+                    if parameter.dtype == torch.float32:
+                        pf.addcdiv_(first_use, denominator, value=-step_size)
+                    else:
+                        # Mixed-precision-safe final ratio. In particular,
+                        # eps=1e-8 need not be representable in FP16.
+                        update = first_use.div(denominator).mul_(-step_size)
+                        pf.add_(update.to(dtype=parameter.dtype))
         return loss
 
 
@@ -104,8 +113,6 @@ def stride_no_error_feedback_inplace_(
     if not gradient.is_contiguous():
         raise ValueError("gradient must be contiguous")
     flat = gradient.view(-1)
-    # Save selected values only; this is ~1/stride of a tensor and is not an EF
-    # state. It is analogous to the communicated sparse values themselves.
     first = (offset - global_start) % stride
     selected = flat[first::stride].clone()
     flat.zero_()
