@@ -1,0 +1,16 @@
+{
+  "id": "yellwojune083/dfc-final-kaggle-validation",
+  "title": "DFC Final Kaggle Validation",
+  "code_file": "dfc_kaggle_final_gpu.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "keywords": ["pytorch", "llm"],
+  "dataset_sources": [],
+  "kernel_sources": [],
+  "competition_sources": [],
+  "model_sources": []
+}
