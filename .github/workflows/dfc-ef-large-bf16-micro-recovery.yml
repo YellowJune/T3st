@@ -5,6 +5,7 @@ on:
     branches: [dfc-h200-final]
     paths:
       - '.github/workflows/dfc-ef-large-bf16-micro-recovery.yml'
+      - 'remote/llm_dfc_ef_cpu_bf16_micro.py'
   workflow_dispatch:
 
 permissions:
