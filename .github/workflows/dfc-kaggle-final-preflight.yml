@@ -1,0 +1,49 @@
+name: DFC Kaggle final preflight CI
+
+on:
+  push:
+    branches: [dfc-kaggle-final]
+  workflow_dispatch:
+
+jobs:
+  cpu-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile final validation scripts
+        run: |
+          python -m py_compile remote/dfc_ef_residual.py
+          python -m py_compile remote/dfc_ef_memory_benchmark.py
+          python -m py_compile remote/llm_continual_qwen_partial_resume.py
+      - name: DFC-EF paired exactness and checkpoint gate
+        run: PYTHONPATH=remote python remote/test_dfc_ef_residual.py
+      - name: Replay-store checkpoint restoration gate
+        run: PYTHONPATH=remote python remote/test_llm_resume_store.py
+      - name: State-scale accounting smoke test
+        run: |
+          mkdir -p results/kaggle_preflight
+          PYTHONPATH=remote python remote/dfc_ef_memory_benchmark.py \
+            --device cpu --coordinates 100003 --timing-coordinates 4099 --repeats 3 \
+            --output results/kaggle_preflight/memory_smoke.json
+          python - <<'PY'
+          import json
+          p='results/kaggle_preflight/memory_smoke.json'
+          d=json.load(open(p))
+          assert d['measured_eliminated_bytes_per_coordinate']==4.0
+          assert d['exactness_timing']['payload_bit_failures']==0
+          assert d['exactness_timing']['semantic_bit_failures']==0
+          print('preflight JSON gate: PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-kaggle-final-preflight
+          path: results/kaggle_preflight/memory_smoke.json
