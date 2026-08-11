@@ -1,0 +1,52 @@
+name: DFC-EF two-rank distributed CPU collective gate
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-distributed-cpu.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  distributed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install numpy
+      - name: Run matched external and DFC through real two-rank all-reduce
+        working-directory: remote
+        env:
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+        run: |
+          mkdir -p ../results/distributed_cpu
+          torchrun --standalone --nproc-per-node=2 distributed_dfc_ef_cpu.py --method external --coordinates 250000 --steps 32 --output-dir ../results/distributed_cpu
+          torchrun --standalone --nproc-per-node=2 distributed_dfc_ef_cpu.py --method dfc --coordinates 250000 --steps 32 --output-dir ../results/distributed_cpu
+          python - <<'PY'
+          import hashlib,json
+          root='../results/distributed_cpu'; pairs=[]
+          for rank in [0,1]:
+              e=json.load(open(f'{root}/external_rank{rank}.json')); d=json.load(open(f'{root}/dfc_rank{rank}.json'))
+              exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','transmitted_values_local','coordinates','steps','world_size']}
+              storage=e['external_residual_bytes']==4*e['coordinates'] and d['external_residual_bytes']==0 and d['dfc_fiber_capacity_bytes']==4*d['coordinates']
+              pairs.append({'rank':rank,'exact':exact,'storage_ok':storage,'parameter_sha256':d['parameter_sha256'],'optimizer_sha256':d['semantic_optimizer_sha256'],'residual_sha256':d['logical_residual_sha256']})
+          ok=all(all(x['exact'].values()) and x['storage_ok'] for x in pairs)
+          out={'schema_version':1,'protocol':'dfc-ef-two-rank-gloo-placement-v1','status':'PASS' if ok else 'FAIL','world_size':2,'coordinates_per_rank':250000,'steps':32,'pairs':pairs,'claim_boundary':'Actual torch.distributed Gloo CPU all-reduce path; not NCCL/GPU communication-performance evidence.'}
+          raw=json.dumps(out,sort_keys=True,separators=(',',':')).encode(); out['result_sha256']=hashlib.sha256(raw).hexdigest(); open(root+'/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if not ok: raise SystemExit('distributed placement mismatch')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dfc-ef-two-rank-gloo
+          path: results/distributed_cpu/*.json
+          if-no-files-found: warn
+          retention-days: 30
