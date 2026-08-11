@@ -1,0 +1,62 @@
+name: DFC-EF Qwen2.5-3B free CPU BF16 extension
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-qwen3b-free.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Attempt same-host 3B BF16 placement pair and retain resource limit
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+        working-directory: remote
+        run: |
+          ROOT='../results/qwen3b_free'; mkdir -p "$ROOT"
+          set +e
+          for METHOD in dfc_ef external_ef; do
+            timeout 3000 python llm_dfc_ef_cpu_bf16_safe.py --method "$METHOD" --seed 1901 \
+              --model 'Qwen/Qwen2.5-3B' --revision main --device cpu --train-last-layers 1 \
+              --updates 4 --batch-size 1 --eval-batch-size 1 --eval-every 4 --keep-ratio 0.125 --deterministic \
+              --output "$ROOT/${METHOD}.json"
+            echo "$?" > "$ROOT/${METHOD}.rc"
+          done
+          set -e
+          python - <<'PY'
+          import hashlib,json,os
+          root='../results/qwen3b_free'; ms=['dfc_ef','external_ef']; rcs={m:int(open(f'{root}/{m}.rc').read()) for m in ms}; out={'schema_version':1,'protocol':'qwen2p5-3b-free-cpu-bf16-attempt-v1','resource_status':rcs}
+          if all(v==0 for v in rcs.values()):
+              e=json.load(open(root+'/external_ef.json')); d=json.load(open(root+'/dfc_ef.json')); exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss','transmitted_values']}; P=e['trainable_parameters']; storage=e['actual_external_residual_bytes']==4*P and d['actual_external_residual_bytes']==0 and d['dfc_fiber_capacity_bytes']==4*P; out.update({'status':'PASS' if all(exact.values()) and storage else 'FAIL','exact':exact,'storage_ok':storage,'resolved_revision':e['resolved_hub_revision'],'total_model_parameters':e['total_model_parameters'],'trainable_parameters':P,'external_residual_bytes':4*P,'parameter_dtype':e['parameter_dtype'],'external_wall_seconds':e['wall_seconds'],'dfc_wall_seconds':d['wall_seconds'],'claim_boundary':'Actual Qwen2.5-3B CPU BF16 model pair; CPU execution, not GPU/HBM evidence.'})
+          else:
+              out.update({'status':'RESOURCE_OR_KERNEL_LIMIT','claim_boundary':'Free-runner 3B BF16 attempt retained; no positive claim if both matched paths did not complete.'})
+          raw=json.dumps(out,sort_keys=True,separators=(',',':')).encode(); out['result_sha256']=hashlib.sha256(raw).hexdigest(); open(root+'/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']=='FAIL': raise SystemExit('scientific mismatch')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qwen3b-free-cpu-bf16
+          path: results/qwen3b_free/*
+          if-no-files-found: warn
+          retention-days: 30
