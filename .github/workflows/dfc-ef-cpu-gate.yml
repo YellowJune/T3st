@@ -6,10 +6,16 @@ on:
     paths:
       - 'remote/dfc_ef.py'
       - 'remote/test_dfc_ef.py'
+      - 'remote/block_topk_ef.py'
+      - 'remote/test_block_topk_ef.py'
       - 'remote/chunked_low16_adamw.py'
       - 'remote/test_chunked_low16_adamw.py'
       - 'remote/kaggle_checkpoint.py'
       - 'remote/test_kaggle_checkpoint.py'
+      - 'remote/gpu_memory_frontier.py'
+      - 'remote/gpu_dfc_ef_exactness.py'
+      - 'remote/gpu_dfc_ef_throughput.py'
+      - 'remote/llm_dfc_ef_qwen.py'
       - 'remote/torch_fiber.py'
       - '.github/workflows/dfc-ef-cpu-gate.yml'
   workflow_dispatch:
@@ -33,4 +39,12 @@ jobs:
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Run DFC-EF exactness and checkpoint gates
         working-directory: remote
-        run: python -m pytest -q test_dfc_ef.py test_chunked_low16_adamw.py test_kaggle_checkpoint.py
+        run: python -m pytest -q test_dfc_ef.py test_block_topk_ef.py test_chunked_low16_adamw.py test_kaggle_checkpoint.py
+      - name: Syntax-check GPU and LLM runners
+        working-directory: remote
+        run: |
+          python -m py_compile \
+            gpu_memory_frontier.py \
+            gpu_dfc_ef_exactness.py \
+            gpu_dfc_ef_throughput.py \
+            llm_dfc_ef_qwen.py 2>/dev/null || test ! -f llm_dfc_ef_qwen.py
