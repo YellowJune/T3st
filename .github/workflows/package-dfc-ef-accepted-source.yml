@@ -20,7 +20,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p accepted_source/remote accepted_source/.github/workflows
+          mkdir -p accepted_source/remote accepted_source/workflows
           files=(
             remote/dfc_ef.py
             remote/block_topk_ef.py
@@ -40,18 +40,16 @@ jobs:
             remote/test_kaggle_checkpoint.py
           )
           for f in "${files[@]}"; do cp "$f" "accepted_source/$f"; done
-          wf=(
-            .github/workflows/dfc-ef-cpu-gate.yml
-            .github/workflows/dfc-ef-jax-cpu-gate.yml
-            .github/workflows/dfc-ef-qwen-cpu-sealed-pairs.yml
-          )
-          for f in "${wf[@]}"; do cp "$f" "accepted_source/$f"; done
+          cp .github/workflows/dfc-ef-cpu-gate.yml accepted_source/workflows/
+          cp .github/workflows/dfc-ef-jax-cpu-gate.yml accepted_source/workflows/
+          cp .github/workflows/dfc-ef-qwen-cpu-sealed-pairs.yml accepted_source/workflows/
           printf '%s\n' b732ff3228038b2391a576f72d79c379cdc23654 > accepted_source/ACCEPTED_EXECUTION_COMMIT.txt
-          (cd accepted_source && find . -type f -print0 | sort -z | xargs -0 sha256sum) > accepted_source/SHA256SUMS_ACCEPTED_SOURCE.txt
+          (cd accepted_source && find . -type f ! -name SHA256SUMS_ACCEPTED_SOURCE.txt -print0 | sort -z | xargs -0 sha256sum) > accepted_source/SHA256SUMS_ACCEPTED_SOURCE.txt
+          (cd accepted_source && sha256sum -c SHA256SUMS_ACCEPTED_SOURCE.txt)
       - name: Upload exact accepted source
         uses: actions/upload-artifact@v4
         with:
-          name: dfc-ef-accepted-source-b732ff3
+          name: dfc-ef-accepted-source-b732ff3-v2
           path: accepted_source
           if-no-files-found: error
           retention-days: 30
