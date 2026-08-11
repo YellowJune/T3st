@@ -26,13 +26,14 @@ def _single(method: str, coordinates: int) -> int:
     if not torch.cuda.is_available():
         print(json.dumps({"ok": False, "error": "CUDA unavailable"}))
         return 3
-    device_index = 0
+    torch.cuda.set_device(0)
     device = torch.device("cuda:0")
+    # Every probe is a fresh subprocess, so there is no prior peak state to
+    # reset.  Avoid reset_peak_memory_stats entirely: PyTorch 2.7.1+cu126 on
+    # Kaggle P100 rejects the device argument even though ordinary allocation
+    # and mem_get_info are healthy.
     torch.cuda.empty_cache()
-    # PyTorch 2.7.x accepts an integer device index here; passing torch.device
-    # can raise "Invalid device argument" on Pascal even though CUDA is healthy.
-    torch.cuda.reset_peak_memory_stats(device_index)
-    free0, total = torch.cuda.mem_get_info(device_index)
+    free0, total = torch.cuda.mem_get_info()
     n = int(coordinates)
     tensors = []
     try:
@@ -42,21 +43,21 @@ def _single(method: str, coordinates: int) -> int:
             tensors.append(torch.empty(n, dtype=torch.float32, device=device))  # EF residual
         elif method != "dfc":
             raise ValueError(method)
-        # One tiny write per allocation forces normal stream visibility without
-        # sweeping the whole tensor and turning an allocation test into a BW test.
+        # Touch both ends of every allocation so CUDA commits/validates the
+        # storage while avoiding a full bandwidth sweep.
         for t in tensors:
             if t.numel():
                 t[0] = 0.0
                 t[-1] = 0.0
-        torch.cuda.synchronize(device_index)
-        free1, _ = torch.cuda.mem_get_info(device_index)
-        allocated = torch.cuda.memory_allocated(device_index)
-        reserved = torch.cuda.memory_reserved(device_index)
+        torch.cuda.synchronize()
+        free1, _ = torch.cuda.mem_get_info()
+        allocated = torch.cuda.memory_allocated()
+        reserved = torch.cuda.memory_reserved()
         result = {
             "ok": True,
             "method": method,
             "coordinates": n,
-            "device": torch.cuda.get_device_name(device_index),
+            "device": torch.cuda.get_device_name(0),
             "torch": torch.__version__,
             "total_hbm_bytes": int(total),
             "free_before_bytes": int(free0),
@@ -78,7 +79,7 @@ def _single(method: str, coordinates: int) -> int:
             "coordinates": n,
             "error": "cuda_oom",
             "message": str(exc).splitlines()[0][:500],
-            "device": torch.cuda.get_device_name(device_index),
+            "device": torch.cuda.get_device_name(0),
             "total_hbm_bytes": int(total),
             "free_before_bytes": int(free0),
         }, sort_keys=True))
@@ -158,7 +159,8 @@ def main() -> None:
     import torch
     if not torch.cuda.is_available():
         raise SystemExit("CUDA unavailable")
-    _, total = torch.cuda.mem_get_info(0)
+    torch.cuda.set_device(0)
+    _, total = torch.cuda.mem_get_info()
     ext_max, ext_rows = _search("external", int(total), a.resolution, a.safety)
     dfc_max, dfc_rows = _search("dfc", int(total), a.resolution, a.safety)
 
@@ -172,8 +174,8 @@ def main() -> None:
 
     ratio = float(dfc_max) / ext_max
     result = {
-        "schema_version": 2,
-        "protocol": "dfc-ef-state-memory-frontier-v2",
+        "schema_version": 3,
+        "protocol": "dfc-ef-state-memory-frontier-v3-fresh-process",
         "device": torch.cuda.get_device_name(0),
         "torch": torch.__version__,
         "total_hbm_bytes": int(total),
