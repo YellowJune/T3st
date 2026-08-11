@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -27,10 +26,13 @@ def _single(method: str, coordinates: int) -> int:
     if not torch.cuda.is_available():
         print(json.dumps({"ok": False, "error": "CUDA unavailable"}))
         return 3
+    device_index = 0
     device = torch.device("cuda:0")
     torch.cuda.empty_cache()
-    torch.cuda.reset_peak_memory_stats(device)
-    free0, total = torch.cuda.mem_get_info(device)
+    # PyTorch 2.7.x accepts an integer device index here; passing torch.device
+    # can raise "Invalid device argument" on Pascal even though CUDA is healthy.
+    torch.cuda.reset_peak_memory_stats(device_index)
+    free0, total = torch.cuda.mem_get_info(device_index)
     n = int(coordinates)
     tensors = []
     try:
@@ -46,15 +48,15 @@ def _single(method: str, coordinates: int) -> int:
             if t.numel():
                 t[0] = 0.0
                 t[-1] = 0.0
-        torch.cuda.synchronize(device)
-        free1, _ = torch.cuda.mem_get_info(device)
-        allocated = torch.cuda.memory_allocated(device)
-        reserved = torch.cuda.memory_reserved(device)
+        torch.cuda.synchronize(device_index)
+        free1, _ = torch.cuda.mem_get_info(device_index)
+        allocated = torch.cuda.memory_allocated(device_index)
+        reserved = torch.cuda.memory_reserved(device_index)
         result = {
             "ok": True,
             "method": method,
             "coordinates": n,
-            "device": torch.cuda.get_device_name(device),
+            "device": torch.cuda.get_device_name(device_index),
             "torch": torch.__version__,
             "total_hbm_bytes": int(total),
             "free_before_bytes": int(free0),
@@ -76,7 +78,7 @@ def _single(method: str, coordinates: int) -> int:
             "coordinates": n,
             "error": "cuda_oom",
             "message": str(exc).splitlines()[0][:500],
-            "device": torch.cuda.get_device_name(device),
+            "device": torch.cuda.get_device_name(device_index),
             "total_hbm_bytes": int(total),
             "free_before_bytes": int(free0),
         }, sort_keys=True))
@@ -90,20 +92,32 @@ def _probe(method: str, n: int) -> dict:
     if lines:
         row = json.loads(lines[-1])
     else:
-        row = {"ok": False, "method": method, "coordinates": int(n), "error": "probe_failed", "returncode": proc.returncode, "stderr": proc.stderr[-2000:]}
+        row = {"ok": False, "method": method, "coordinates": int(n),
+               "error": "probe_infrastructure_failure", "returncode": proc.returncode,
+               "stderr": proc.stderr[-4000:]}
     row["returncode"] = proc.returncode
+
+    # Only rc=42 is a scientific OOM observation. Any other subprocess failure
+    # invalidates the benchmark instead of being silently counted as an OOM.
+    if proc.returncode == 0 and not row.get("ok", False):
+        raise RuntimeError(f"probe returned rc=0 but ok=false: {row}")
+    if proc.returncode == 42:
+        if row.get("ok", False) or row.get("error") != "cuda_oom":
+            raise RuntimeError(f"malformed OOM probe: {row}")
+    elif proc.returncode != 0:
+        raise RuntimeError(
+            f"frontier probe infrastructure failed for {method} n={n}, rc={proc.returncode}: "
+            + proc.stderr[-2000:]
+        )
     return row
 
 
 def _search(method: str, total_bytes: int, resolution: int, safety: float) -> tuple[int, list[dict]]:
     bpp = 12 if method == "external" else 8
-    # Search a little beyond the nominal free-memory estimate so the failing
-    # side of the frontier is actually observed.
     hi = max(resolution, int(total_bytes * safety / bpp))
     hi = ((hi + resolution - 1) // resolution) * resolution
     lo = 0
     rows: list[dict] = []
-    # First ensure hi fails; if not, expand until it does or exceeds 1.25x HBM.
     cap = int(total_bytes * 1.25 / bpp)
     while hi <= cap:
         row = _probe(method, hi); rows.append(row)
@@ -113,7 +127,6 @@ def _search(method: str, total_bytes: int, resolution: int, safety: float) -> tu
         hi += max(resolution, hi // 8)
         hi = ((hi + resolution - 1) // resolution) * resolution
     if rows and rows[-1].get("ok"):
-        # Conservative fallback: hi is one resolution above last success.
         hi = lo + resolution
     while hi - lo > resolution:
         mid = ((lo + hi) // (2 * resolution)) * resolution
@@ -123,6 +136,8 @@ def _search(method: str, total_bytes: int, resolution: int, safety: float) -> tu
             lo = mid
         else:
             hi = mid
+    if lo <= 0:
+        raise RuntimeError(f"no successful {method} allocation probe; benchmark invalid")
     return lo, rows
 
 
@@ -155,9 +170,10 @@ def main() -> None:
         crossover = {"coordinates": candidate, "external": ext_check, "dfc": dfc_check,
                      "verified": (not ext_check.get("ok", False)) and bool(dfc_check.get("ok", False))}
 
+    ratio = float(dfc_max) / ext_max
     result = {
-        "schema_version": 1,
-        "protocol": "dfc-ef-state-memory-frontier-v1",
+        "schema_version": 2,
+        "protocol": "dfc-ef-state-memory-frontier-v2",
         "device": torch.cuda.get_device_name(0),
         "torch": torch.__version__,
         "total_hbm_bytes": int(total),
@@ -166,15 +182,25 @@ def main() -> None:
         "dfc_bytes_per_coordinate": 8,
         "external_max_success_coordinates": int(ext_max),
         "dfc_max_success_coordinates": int(dfc_max),
-        "frontier_ratio_dfc_over_external": (float(dfc_max) / ext_max) if ext_max else None,
+        "frontier_ratio_dfc_over_external": ratio,
         "external_residual_bytes_removed_at_dfc_frontier": int(4 * dfc_max),
         "crossover": crossover,
+        "predeclared_h4_ratio_gate": bool(ratio >= 1.25),
+        "predeclared_h4_crossover_gate": bool(crossover and crossover.get("verified")),
         "external_probes": ext_rows,
         "dfc_probes": dfc_rows,
     }
+    result["predeclared_h4_pass"] = bool(
+        result["predeclared_h4_ratio_gate"] and result["predeclared_h4_crossover_gate"]
+    )
     out = Path(a.output); out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
-    print(json.dumps({k: result[k] for k in ["protocol", "device", "total_hbm_bytes", "external_max_success_coordinates", "dfc_max_success_coordinates", "frontier_ratio_dfc_over_external", "external_residual_bytes_removed_at_dfc_frontier", "crossover"]}, indent=2, sort_keys=True))
+    print(json.dumps({k: result[k] for k in [
+        "protocol", "device", "total_hbm_bytes", "external_max_success_coordinates",
+        "dfc_max_success_coordinates", "frontier_ratio_dfc_over_external",
+        "external_residual_bytes_removed_at_dfc_frontier", "crossover",
+        "predeclared_h4_ratio_gate", "predeclared_h4_crossover_gate", "predeclared_h4_pass"
+    ]}, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
