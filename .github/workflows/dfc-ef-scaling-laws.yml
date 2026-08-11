@@ -1,0 +1,100 @@
+name: DFC-EF empirical scaling laws on free CPU runners
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-scaling-laws.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  memory-budget-scaling:
+    name: frontier-${{ matrix.mib }}MiB
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        mib: [256, 512, 768, 1024]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Binary-search matched allocation frontier
+        run: |
+          mkdir -p results/scaling_laws/frontier
+          cat > /tmp/w.py <<'PY'
+          import json,resource,sys
+          method=sys.argv[1]; p=int(sys.argv[2]); limit=int(sys.argv[3]); resource.setrlimit(resource.RLIMIT_AS,(limit,limit)); a=[]
+          try:
+              n=2 if method=='dfc' else 3
+              for _ in range(n):
+                  x=bytearray(4*p)
+                  for i in range(0,len(x),4096): x[i]=1
+                  a.append(x)
+              print(json.dumps({'ok':True,'p':p,'bytes':n*4*p,'rss':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*1024}))
+          except (MemoryError,OSError): print(json.dumps({'ok':False,'p':p})); raise SystemExit(2)
+          PY
+          MIB='${{ matrix.mib }}' python - <<'PY'
+          import json,os,subprocess,sys
+          mib=int(os.environ['MIB']); limit=mib*1024*1024
+          def probe(m,p):
+              q=subprocess.run([sys.executable,'/tmp/w.py',m,str(p),str(limit)],capture_output=True,text=True,timeout=50); s=(q.stdout.strip().splitlines() or ['{}'])[-1]
+              try:r=json.loads(s)
+              except:r={'ok':False}
+              return bool(r.get('ok')),r
+          def search(m):
+              lo=1_000_000; hi=max(5_000_000,int(limit/8/1_000_000*1_000_000*1.12) if m=='dfc' else int(limit/12/1_000_000*1_000_000*1.12)); best=None
+              for _ in range(10):
+                  mid=max(1_000_000,((lo+hi)//2//1_000_000)*1_000_000); ok,r=probe(m,mid)
+                  if ok: best=r; lo=mid+1_000_000
+                  else: hi=mid-1_000_000
+                  if lo>hi: break
+              return best
+          e=search('external'); d=search('dfc'); assert e and d; ratio=d['p']/e['p']
+          out={'schema_version':1,'protocol':'dfc-ef-memory-budget-scaling-v1','budget_mib':mib,'budget_bytes':limit,'external':e,'dfc':d,'frontier_ratio':ratio,'ideal_ratio':1.5,'status':'PASS' if ratio>=1.25 else 'FAIL'}
+          path=f'results/scaling_laws/frontier/{mib}MiB.json'; open(path,'w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']!='PASS': raise SystemExit('ratio gate')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scaling-frontier-${{ matrix.mib }}MiB
+          path: results/scaling_laws/frontier/${{ matrix.mib }}MiB.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  mmap-size-scaling:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install numpy
+      - name: Verify persistence law across four physical sizes
+        run: |
+          mkdir -p results/scaling_laws/mmap
+          python - <<'PY'
+          import hashlib,json,os,tempfile,time,numpy as np
+          rows=[]
+          for P in [1_000_000,5_000_000,25_000_000,50_000_000]:
+              path=os.path.join(tempfile.mkdtemp(),f'm{P}.bin'); open(path,'wb').truncate(8*P); mm=np.memmap(path,dtype=np.uint32,mode='r+',shape=(2,P)); rng=np.random.default_rng(7000+P); src=hashlib.sha256(); sem=hashlib.sha256(); t=time.perf_counter()
+              for st in range(0,P,1_000_000):
+                  en=min(P,st+1_000_000); n=en-st; h1=rng.integers(0,65536,n,dtype=np.uint32)<<16; h2=rng.integers(0,65536,n,dtype=np.uint32)<<16; r=rng.integers(0,2**32,n,dtype=np.uint32); src.update(r.tobytes()); sem.update(h1.tobytes()); sem.update(h2.tobytes()); mm[0,st:en]=h1|(r&0xffff); mm[1,st:en]=h2|(r>>16)
+              mm.flush(); del mm; write=time.perf_counter()-t; mm=np.memmap(path,dtype=np.uint32,mode='r',shape=(2,P)); got=hashlib.sha256(); sem2=hashlib.sha256(); t=time.perf_counter()
+              for st in range(0,P,1_000_000):
+                  en=min(P,st+1_000_000); a=np.asarray(mm[0,st:en]); b=np.asarray(mm[1,st:en]); got.update(((a&0xffff)|((b&0xffff)<<16)).astype(np.uint32,copy=False).tobytes()); sem2.update((a&0xffff0000).tobytes()); sem2.update((b&0xffff0000).tobytes())
+              read=time.perf_counter()-t; ok=src.hexdigest()==got.hexdigest() and sem.hexdigest()==sem2.hexdigest() and os.path.getsize(path)==8*P
+              rows.append({'coordinates':P,'common_bytes':8*P,'external_bytes_avoided':4*P,'payload_capacity_bytes':4*P,'payload_equal':src.hexdigest()==got.hexdigest(),'semantic_equal':sem.hexdigest()==sem2.hexdigest(),'write_seconds':write,'read_seconds':read,'status':'PASS' if ok else 'FAIL'})
+              del mm
+          out={'schema_version':1,'protocol':'dfc-low16-mmap-size-scaling-v1','rows':rows,'status':'PASS' if all(r['status']=='PASS' for r in rows) else 'FAIL'}
+          open('results/scaling_laws/mmap/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']!='PASS': raise SystemExit('mmap scaling fail')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scaling-mmap-sizes
+          path: results/scaling_laws/mmap/summary.json
+          retention-days: 30
