@@ -1,0 +1,151 @@
+name: DFC-EF Qwen CPU same-runner sealed pairs
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-qwen-cpu-sealed-pairs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pair:
+    name: sealed-pair-seed${{ matrix.seed }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [1901, 1931, 1951]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned CPU stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Run external and DFC on the identical host
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+          VECLIB_MAXIMUM_THREADS: '1'
+        working-directory: remote
+        run: |
+          mkdir -p ../results/free_cpu_qwen_sealed ../checkpoints/free_cpu_qwen_sealed
+          for METHOD in external_ef dfc_ef; do
+            python llm_dfc_ef_qwen_safe.py \
+              --method "$METHOD" \
+              --seed '${{ matrix.seed }}' \
+              --model 'Qwen/Qwen2.5-0.5B' \
+              --revision '060db6499f32faf8b98477b0a26969ef7d8b9987' \
+              --device cpu \
+              --train-last-layers 1 \
+              --updates 64 \
+              --batch-size 2 \
+              --eval-batch-size 4 \
+              --eval-every 16 \
+              --keep-ratio 0.125 \
+              --ef-chunk 262144 \
+              --optimizer-chunk 262144 \
+              --deterministic \
+              --checkpoint "../checkpoints/free_cpu_qwen_sealed/${METHOD}_seed${{ matrix.seed }}.pt" \
+              --checkpoint-every 32 \
+              --output "../results/free_cpu_qwen_sealed/qwen_${METHOD}_seed${{ matrix.seed }}.json"
+          done
+          python - <<'PY'
+          import hashlib, json
+          seed=${{ matrix.seed }}
+          e=json.load(open(f'../results/free_cpu_qwen_sealed/qwen_external_ef_seed{seed}.json'))
+          d=json.load(open(f'../results/free_cpu_qwen_sealed/qwen_dfc_ef_seed{seed}.json'))
+          common=('model','resolved_hub_revision','device','parameter_dtype','total_model_parameters','trainable_parameters','train_last_layers','optimizer_semantics','compressor','keep_ratio','updates','batch_size','seq_len','lr','weight_decay','grad_clip','ef_chunk_coordinates','optimizer_chunk_coordinates','transmitted_values','dense_gradient_values','initial_accuracy','initial_eval_loss')
+          for k in common:
+              assert e[k]==d[k], (k,e[k],d[k])
+          exact={
+            'parameter_sha_equal':e['parameter_sha256']==d['parameter_sha256'],
+            'semantic_optimizer_sha_equal':e['semantic_optimizer_sha256']==d['semantic_optimizer_sha256'],
+            'logical_residual_sha_equal':e['logical_residual_sha256']==d['logical_residual_sha256'],
+            'final_accuracy_equal':e['final_accuracy']==d['final_accuracy'],
+            'final_eval_loss_equal':e['final_eval_loss']==d['final_eval_loss'],
+            'history_equal':e['history']==d['history'],
+          }
+          P=int(e['trainable_parameters'])
+          ce=int(e['checkpoint_bytes']); cd=int(d['checkpoint_bytes']); delta=ce-cd
+          storage_ok=(int(e['actual_external_residual_bytes'])==4*P and int(d['actual_external_residual_bytes'])==0 and int(d['dfc_fiber_capacity_bytes'])==4*P and abs(delta-4*P)<=2*1024*1024)
+          result={
+            'schema_version':1,'protocol':'qwen-dfc-ef-blocktopk-v1-same-runner-sealed-pair',
+            'seed':seed,'status':'PASS' if all(exact.values()) and storage_ok else 'FAIL',
+            'exact':exact,'storage_ok':storage_ok,'trainable_parameters':P,
+            'theoretical_external_residual_bytes':4*P,
+            'external_checkpoint_bytes':ce,'dfc_checkpoint_bytes':cd,
+            'measured_checkpoint_delta_bytes':delta,
+            'checkpoint_delta_error_bytes':delta-4*P,
+            'final_accuracy':d['final_accuracy'],'final_eval_loss':d['final_eval_loss'],
+            'parameter_sha256':d['parameter_sha256'],
+            'semantic_optimizer_sha256':d['semantic_optimizer_sha256'],
+            'logical_residual_sha256':d['logical_residual_sha256'],
+            'external_wall_seconds':e['wall_seconds'],'dfc_wall_seconds':d['wall_seconds'],
+            'claim_boundary':'Same-host CPU actual pretrained Qwen placement equivalence and checkpoint storage; not CUDA/HBM evidence.'
+          }
+          raw=json.dumps(result,sort_keys=True,separators=(',',':')).encode(); result['result_sha256']=hashlib.sha256(raw).hexdigest()
+          open(f'../results/free_cpu_qwen_sealed/pair_seed{seed}.json','w').write(json.dumps(result,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(result,indent=2,sort_keys=True))
+          if result['status']!='PASS': raise SystemExit('sealed pair failed')
+          PY
+          rm -f ../checkpoints/free_cpu_qwen_sealed/*.pt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qwen-cpu-sealed-pair-seed${{ matrix.seed }}
+          path: results/free_cpu_qwen_sealed/*seed${{ matrix.seed }}.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    name: aggregate-sealed-pairs
+    needs: pair
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: qwen-cpu-sealed-pair-*
+          path: rows
+          merge-multiple: true
+      - name: Seal aggregate
+        run: |
+          python - <<'PY'
+          import glob,hashlib,json,statistics
+          rows=[json.load(open(p)) for p in sorted(glob.glob('rows/pair_seed*.json'))]
+          assert len(rows)==3, len(rows)
+          assert [r['seed'] for r in rows]==[1901,1931,1951]
+          assert all(r['status']=='PASS' for r in rows), rows
+          out={
+            'schema_version':1,'protocol':'qwen-dfc-ef-blocktopk-v1-same-runner-sealed-3seed',
+            'status':'PASS','n_pairs':3,'seeds':[1901,1931,1951],'pairs':rows,
+            'mean_checkpoint_delta_bytes':statistics.mean(r['measured_checkpoint_delta_bytes'] for r in rows),
+            'mean_checkpoint_delta_error_bytes':statistics.mean(r['checkpoint_delta_error_bytes'] for r in rows),
+            'all_parameter_sha_equal':all(r['exact']['parameter_sha_equal'] for r in rows),
+            'all_optimizer_sha_equal':all(r['exact']['semantic_optimizer_sha_equal'] for r in rows),
+            'all_residual_sha_equal':all(r['exact']['logical_residual_sha_equal'] for r in rows),
+            'claim_boundary':'Three actual pretrained Qwen CPU same-host paired repetitions. CUDA/HBM remains unmeasured.'
+          }
+          raw=json.dumps(out,sort_keys=True,separators=(',',':')).encode(); out['result_sha256']=hashlib.sha256(raw).hexdigest()
+          open('qwen_cpu_sealed_3seed_summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qwen-cpu-sealed-3seed-summary
+          path: qwen_cpu_sealed_3seed_summary.json
+          if-no-files-found: error
+          retention-days: 30
