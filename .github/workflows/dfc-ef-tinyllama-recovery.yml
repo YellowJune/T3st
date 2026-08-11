@@ -1,0 +1,59 @@
+name: DFC-EF TinyLlama cross-model recovery
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-tinyllama-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Execute same-host TinyLlama pair with frozen generic tokenizer adapter
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+        working-directory: remote
+        run: |
+          mkdir -p ../results/tinyllama_recovery
+          for METHOD in external_ef dfc_ef; do
+            python llm_dfc_ef_generic_safe.py --method "$METHOD" --seed 1901 \
+              --model 'TinyLlama/TinyLlama-1.1B-Chat-v1.0' --revision main --device cpu --train-last-layers 1 \
+              --updates 16 --batch-size 1 --eval-batch-size 2 --eval-every 8 --keep-ratio 0.125 --deterministic \
+              --output "../results/tinyllama_recovery/${METHOD}.json"
+          done
+          python - <<'PY'
+          import hashlib,json
+          root='../results/tinyllama_recovery'; e=json.load(open(root+'/external_ef.json')); d=json.load(open(root+'/dfc_ef.json'))
+          assert e['protocol']==d['protocol']=='generic-last-subtoken-dfc-ef-blocktopk-v1'
+          exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss','history','transmitted_values']}
+          P=e['trainable_parameters']; storage=(e['actual_external_residual_bytes']==4*P and d['actual_external_residual_bytes']==0 and d['dfc_fiber_capacity_bytes']==4*P)
+          out={'schema_version':1,'protocol':'tinyllama1p1b-dfc-ef-generic-target-pair-v1','status':'PASS' if all(exact.values()) and storage else 'FAIL','exact':exact,'storage_ok':storage,'resolved_revision':e['resolved_hub_revision'],'total_model_parameters':e['total_model_parameters'],'trainable_parameters':P,'external_residual_bytes':4*P,'target_adapter':e['target_adapter'],'external_wall_seconds':e['wall_seconds'],'dfc_wall_seconds':d['wall_seconds'],'claim_boundary':'Cross-model placement-equivalence validation; target adapter is fixed last-subtoken, so task accuracy is not a cross-model scientific metric.'}
+          raw=json.dumps(out,sort_keys=True,separators=(',',':')).encode(); out['result_sha256']=hashlib.sha256(raw).hexdigest(); open(root+'/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']!='PASS': raise SystemExit('TinyLlama recovery failed')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tinyllama-cross-model-recovery
+          path: results/tinyllama_recovery/*.json
+          if-no-files-found: warn
+          retention-days: 30
