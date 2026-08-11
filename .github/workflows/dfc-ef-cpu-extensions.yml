@@ -1,0 +1,215 @@
+name: DFC-EF free CPU scale and cross-model extensions
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-cpu-extensions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-model-rss:
+    name: qwen-8layer-actual-RSS-placement
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Measure process peak RSS with 8 trainable blocks
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+        working-directory: remote
+        run: |
+          mkdir -p ../results/cpu_extensions/rss
+          for METHOD in external_ef dfc_ef; do
+            /usr/bin/time -v -o "../results/cpu_extensions/rss/time_${METHOD}.txt" \
+              python llm_dfc_ef_qwen_safe.py --method "$METHOD" --seed 1901 --device cpu --train-last-layers 8 \
+              --updates 8 --batch-size 1 --eval-batch-size 4 --eval-every 8 --keep-ratio 0.125 --deterministic \
+              --output "../results/cpu_extensions/rss/${METHOD}.json"
+          done
+          python - <<'PY'
+          import json,re
+          def rss(path):
+              t=open(path).read(); m=re.search(r'Maximum resident set size \(kbytes\):\s*(\d+)',t); assert m; return int(m.group(1))*1024
+          e=json.load(open('../results/cpu_extensions/rss/external_ef.json')); d=json.load(open('../results/cpu_extensions/rss/dfc_ef.json'))
+          exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss','transmitted_values']}
+          er=rss('../results/cpu_extensions/rss/time_external_ef.txt'); dr=rss('../results/cpu_extensions/rss/time_dfc_ef.txt')
+          P=e['trainable_parameters']; out={'schema_version':1,'protocol':'qwen-dfc-ef-actual-rss-v1','status':'PASS' if all(exact.values()) else 'FAIL','exact':exact,'trainable_parameters':P,'external_residual_bytes':4*P,'external_peak_rss_bytes':er,'dfc_peak_rss_bytes':dr,'peak_rss_delta_bytes':er-dr,'peak_rss_delta_fraction_of_4P':(er-dr)/(4*P),'claim_boundary':'CPU process peak RSS for actual Qwen 0.5B with eight trainable blocks; allocator/model peaks may dilute the exact 4P difference.'}
+          open('../results/cpu_extensions/rss/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']!='PASS': raise SystemExit('placement mismatch')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpu-extension-qwen-rss
+          path: results/cpu_extensions/rss/*
+          if-no-files-found: warn
+          retention-days: 30
+
+  qwen-1p5b:
+    name: qwen2p5-1p5B-placement-pair
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Run 1.5B same-host pair; preserve resource failure if impossible
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+        working-directory: remote
+        run: |
+          mkdir -p ../results/cpu_extensions/qwen1p5b
+          set +e
+          STATUS=0
+          for METHOD in external_ef dfc_ef; do
+            timeout 3000 python llm_dfc_ef_qwen_safe.py --method "$METHOD" --seed 1901 \
+              --model 'Qwen/Qwen2.5-1.5B' --revision main --device cpu --train-last-layers 1 \
+              --updates 8 --batch-size 1 --eval-batch-size 2 --eval-every 8 --keep-ratio 0.125 --deterministic \
+              --output "../results/cpu_extensions/qwen1p5b/${METHOD}.json"
+            RC=$?
+            echo "$RC" > "../results/cpu_extensions/qwen1p5b/${METHOD}.rc"
+            if [ "$RC" -ne 0 ]; then STATUS=$RC; break; fi
+          done
+          set -e
+          python - <<'PY'
+          import json,os
+          root='../results/cpu_extensions/qwen1p5b'
+          rcs={m:int(open(f'{root}/{m}.rc').read()) if os.path.exists(f'{root}/{m}.rc') else None for m in ['external_ef','dfc_ef']}
+          if all(x==0 for x in rcs.values()):
+              e=json.load(open(f'{root}/external_ef.json')); d=json.load(open(f'{root}/dfc_ef.json'))
+              exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss','transmitted_values']}
+              out={'schema_version':1,'protocol':'qwen2p5-1p5b-dfc-ef-cpu-pair-v1','status':'PASS' if all(exact.values()) else 'FAIL','resource_status':rcs,'exact':exact,'resolved_revision':e['resolved_hub_revision'],'total_model_parameters':e['total_model_parameters'],'trainable_parameters':e['trainable_parameters'],'external_residual_bytes':e['actual_external_residual_bytes']}
+          else:
+              out={'schema_version':1,'protocol':'qwen2p5-1p5b-dfc-ef-cpu-pair-v1','status':'RESOURCE_LIMIT','resource_status':rcs,'claim_boundary':'Attempt retained; free GitHub CPU runner could not complete the requested actual-model extension.'}
+          open(f'{root}/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']=='FAIL': raise SystemExit('scientific mismatch')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpu-extension-qwen1p5b
+          path: results/cpu_extensions/qwen1p5b/*
+          if-no-files-found: warn
+          retention-days: 30
+
+  tinyllama-cross-model:
+    name: tinyllama-1p1B-cross-model-placement
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install 'transformers>=4.51,<5' 'huggingface_hub>=0.30,<1' sentencepiece accelerate numpy
+      - name: Run Llama-architecture actual model pair
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          NUMEXPR_NUM_THREADS: '1'
+        working-directory: remote
+        run: |
+          mkdir -p ../results/cpu_extensions/tinyllama
+          set +e
+          for METHOD in external_ef dfc_ef; do
+            timeout 3000 python llm_dfc_ef_qwen_safe.py --method "$METHOD" --seed 1901 \
+              --model 'TinyLlama/TinyLlama-1.1B-Chat-v1.0' --revision main --device cpu --train-last-layers 1 \
+              --updates 8 --batch-size 1 --eval-batch-size 2 --eval-every 8 --keep-ratio 0.125 --deterministic \
+              --output "../results/cpu_extensions/tinyllama/${METHOD}.json"
+            echo "$?" > "../results/cpu_extensions/tinyllama/${METHOD}.rc"
+            [ "$(cat ../results/cpu_extensions/tinyllama/${METHOD}.rc)" = 0 ] || break
+          done
+          set -e
+          python - <<'PY'
+          import json,os
+          root='../results/cpu_extensions/tinyllama'; ms=['external_ef','dfc_ef']; rcs={m:int(open(f'{root}/{m}.rc').read()) if os.path.exists(f'{root}/{m}.rc') else None for m in ms}
+          if all(x==0 for x in rcs.values()):
+              e=json.load(open(f'{root}/external_ef.json')); d=json.load(open(f'{root}/dfc_ef.json'))
+              exact={k:e[k]==d[k] for k in ['parameter_sha256','semantic_optimizer_sha256','logical_residual_sha256','final_accuracy','final_eval_loss','transmitted_values']}
+              out={'schema_version':1,'protocol':'tinyllama1p1b-dfc-ef-cpu-pair-v1','status':'PASS' if all(exact.values()) else 'FAIL','resource_status':rcs,'exact':exact,'resolved_revision':e['resolved_hub_revision'],'total_model_parameters':e['total_model_parameters'],'trainable_parameters':e['trainable_parameters'],'external_residual_bytes':e['actual_external_residual_bytes']}
+          else:
+              out={'schema_version':1,'protocol':'tinyllama1p1b-dfc-ef-cpu-pair-v1','status':'RESOURCE_OR_COMPAT_LIMIT','resource_status':rcs}
+          open(f'{root}/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if out['status']=='FAIL': raise SystemExit('scientific mismatch')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpu-extension-tinyllama
+          path: results/cpu_extensions/tinyllama/*
+          if-no-files-found: warn
+          retention-days: 30
+
+  exhaustive-word-roundtrip:
+    name: million-arbitrary-word-fiber-roundtrip
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install numpy
+      - name: Test arbitrary 32-bit payload words including non-finite bit patterns
+        working-directory: remote
+        run: |
+          mkdir -p ../results/cpu_extensions/words
+          python - <<'PY'
+          import hashlib,json,torch
+          from dfc_ef import PackedFP32Residual
+          from torch_fiber import DFCLow16AdamW,HIGH16_MASK_I32
+          N=1_000_000
+          p=torch.nn.Parameter(torch.zeros(N,dtype=torch.float32)); opt=DFCLow16AdamW([p],enable_fiber=True); ch=PackedFP32Residual(opt)
+          gen=torch.Generator().manual_seed(260812)
+          # Generate arbitrary signed int32 bit patterns, not only numerically ordinary floats.
+          words=torch.randint(-(2**31),2**31-1,(N,),generator=gen,dtype=torch.int64).to(torch.int32)
+          # Deterministically inject boundary patterns.
+          special=torch.tensor([0,0x7f800000,0xff800000,0x7fc00001,0x00000001,0x80000000,0x7f7fffff],dtype=torch.int64).to(torch.int32)
+          words[:special.numel()]=special
+          residual=words.view(torch.float32)
+          s1=opt.state[p]['exp_avg'].view(torch.int32); s2=opt.state[p]['exp_avg_sq'].view(torch.int32)
+          hi1=torch.bitwise_and(s1,HIGH16_MASK_I32).clone(); hi2=torch.bitwise_and(s2,HIGH16_MASK_I32).clone()
+          ch.write_for_parameter(p,residual); got=ch.read_for_parameter(p).view(torch.int32)
+          ok=torch.equal(words,got) and torch.equal(hi1,torch.bitwise_and(s1,HIGH16_MASK_I32)) and torch.equal(hi2,torch.bitwise_and(s2,HIGH16_MASK_I32))
+          sha=lambda x:hashlib.sha256(x.contiguous().numpy().tobytes()).hexdigest()
+          out={'schema_version':1,'protocol':'dfc-low16-arbitrary-word-roundtrip-v1','words':N,'status':'PASS' if ok else 'FAIL','payload_sha256':sha(got),'source_sha256':sha(words),'semantic_highwords_unchanged':ok}
+          open('../results/cpu_extensions/words/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          if not ok: raise SystemExit('roundtrip failed')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cpu-extension-arbitrary-word-roundtrip
+          path: results/cpu_extensions/words/summary.json
+          retention-days: 30
