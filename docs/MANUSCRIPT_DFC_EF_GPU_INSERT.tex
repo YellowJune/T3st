@@ -1,0 +1,88 @@
+% Measured DFC-EF GPU systems insert. Generated from the sealed Kaggle P100
+% evidence after docs/DFC_EF_FREE_VALIDATION_PROTOCOL.md was fixed.
+% Source kernel commit: edc10ad783aabc2354ef5f1a906634122816d659
+% Evidence artifact SHA256:
+% acb21bd18be52e7d68b23e49c779ba4d427a5c4b3eeb2490e5f500d9b4192820
+
+\subsection{Actual CUDA Memory Substitution and OOM Frontier}
+\label{sec:dfc-ef-gpu}
+
+We next test whether the physical resource substitution predicted by DFC-EF is
+visible in an actual GPU allocator rather than only in checkpoint size.  The
+criteria were fixed before the accepted run.  The experiment used a Kaggle
+Tesla P100-PCIE-16GB (17,059,545,088 reported HBM bytes) with PyTorch
+2.7.1+cu126.  The state-only frontier deliberately excludes model weights,
+gradients, and activations because these allocations are common to both
+placements.  The external baseline owns two FP32 Adam moment containers and one
+FP32 error-feedback residual (12 bytes per trainable coordinate), whereas
+DFC-EF owns only the two FP32 moment containers (8 bytes per coordinate) and
+stores the 32-bit logical residual in their decoder fibers.
+
+\paragraph{CUDA exactness.}
+A 1,048,579-coordinate trajectory was executed for 32 updates with a bounded
+131,071-coordinate workspace for both FP32 and FP16 model parameters.  The test
+includes payload round-trip, decoded optimizer-state equivalence, logical
+residual equivalence, parameter equivalence, and checkpoint/restart.  Both
+precision paths pass.  During validation we found a real mixed-precision
+checkpoint issue: the generic PyTorch optimizer loader casts floating optimizer
+state toward the parameter dtype, which is invalid when an FP32 tensor is a
+physical DFC container.  The accepted implementation therefore uses a direct
+bit-preserving FP32-container reload, covered by a regression test.
+
+\paragraph{Measured $4P$ allocation law.}
+Table~\ref{tab:dfc-ef-gpu-allocation} reports CUDA allocator measurements.  At
+all five tested scales, the steady allocated-memory difference between external
+EF and DFC-EF is exactly $4P$ bytes, while the final parameter and logical
+residual digests match.  The smallest case has a transient peak disadvantage
+for DFC because the bounded workspace dominates at that scale; at larger scales
+the peak allocator difference approaches the same $4P$ law.
+
+\begin{table}[t]
+\centering
+\caption{Measured P100 allocation substitution.  ``Saved'' is external-EF
+minus DFC-EF.  Steady savings equal the predicted $4P$ bytes at every tested
+scale.  Timing is retained as a negative result for the unfused reference
+implementation.}
+\label{tab:dfc-ef-gpu-allocation}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{r|r|r|r|r|r}
+\hline
+$P$ & steady saved & peak saved & external ms & DFC ms & overhead \\
+\hline
+1,048,576  & 4,194,304   & -4,194,304  & 0.6813 & 0.9443 & +38.60\% \\
+4,194,304  & 16,777,216  & 8,388,608   & 2.2241 & 3.4634 & +55.73\% \\
+16,777,216 & 67,108,864  & 58,720,256  & 8.4081 & 13.2998 & +58.18\% \\
+33,554,432 & 134,217,728 & 125,829,120 & 16.4633 & 26.5798 & +61.45\% \\
+67,108,864 & 268,435,456 & 260,046,848 & 32.9196 & 53.1638 & +61.50\% \\
+\hline
+\end{tabular}}
+\end{table}
+
+\paragraph{OOM frontier.}
+Fresh subprocesses were used for every allocation probe so a failed allocation
+could not contaminate a later probe.  Only a genuine CUDA OOM return was
+classified as OOM; unrelated runtime failures invalidate the probe rather than
+counting as evidence.  With 4,194,304-coordinate search resolution, the
+external baseline reached 1,371,537,408 successful coordinates, whereas DFC-EF
+reached 2,059,403,264, a measured frontier ratio of
+\textbf{1.501529$\times$}.  This exceeds the predeclared 1.25$\times$ gate and
+is close to the ideal $12/8=1.5$ ratio.
+
+More strongly, at 1,375,731,712 coordinates the external placement requires
+16,508,780,544 state bytes and produces an actual CUDA OOM.  At the identical
+coordinate count, DFC-EF succeeds with a measured allocation of
+11,005,853,696 bytes, exactly matching the predicted $8P$, while providing
+5,502,926,848 bytes of hidden residual capacity.  Thus the predeclared
+external-OOM/DFC-success crossover gate also passes.  At its maximum measured
+frontier, DFC-EF provides 8,237,613,056 bytes of decoder-fiber payload capacity
+without a separate model-scale residual allocation.
+
+\paragraph{Performance boundary.}
+These measurements establish physical state substitution and a shifted OOM
+frontier; they do \emph{not} establish a speed advantage.  The current
+bounded-workspace PyTorch reference path is 38.6--61.5\% slower than the matched
+external-EF reference over the measured microbenchmark range.  We retain this
+negative result explicitly.  Kernel fusion and lower-level implementation are
+therefore required before making a deployment-speed claim.  Communication
+reduction, separately, is attributable to the matched compressor and not to
+DFC itself.
