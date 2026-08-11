@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import copy
 import math
+from collections import defaultdict
+from itertools import chain
 
 import torch
 
@@ -10,19 +13,7 @@ from torch_fiber import DFCLow16AdamW, HIGH16_MASK_I32, LOW16_MASK_I32
 
 
 class DFCLow16AdamWChunked(DFCLow16AdamW):
-    """BF16-high AdamW with O(chunk) transient workspace.
-
-    Moment evolution matches ``DFCLow16AdamW`` exactly: each FP32 moment is
-    decoded by clearing its low 16 physical bits, updated in FP32, and encoded
-    back with either zero or preserved payload low words.
-
-    For FP16/BF16 *parameters*, the final Adam ratio is evaluated in FP32 and
-    then cast to parameter dtype before the parameter add. This avoids the
-    1e-8 epsilon underflow/0-div-0 failure that occurs when a sparse gradient
-    leaves a moment at zero and the denominator is prematurely cast to FP16.
-    For FP32 parameters the original addcdiv transition is retained.
-    External-EF and DFC-EF use this identical implementation.
-    """
+    """BF16-high AdamW with O(chunk) transient workspace."""
 
     def __init__(self, *args, chunk_coordinates: int = 1_048_576, **kwargs):
         if int(chunk_coordinates) <= 0:
@@ -31,49 +22,67 @@ class DFCLow16AdamWChunked(DFCLow16AdamW):
         super().__init__(*args, **kwargs)
 
     def load_state_dict(self, state_dict):
-        """Load without letting PyTorch cast physical FP32 moments to param dtype.
+        """Reload DFC state without PyTorch's parameter-dtype state casting.
 
-        ``torch.optim.Optimizer.load_state_dict`` normally casts floating state
-        tensors to the associated parameter dtype.  That is appropriate for
-        conventional optimizer state, but it is invalid for DFC: ``exp_avg``
-        and ``exp_avg_sq`` are *physical FP32 containers* whose low 16 words
-        carry payload.  With FP16 parameters, an ordinary load would therefore
-        both change the numerical contract and destroy payload bits.
-
-        Encode the two moment tensors as int32 bit containers before delegating
-        to PyTorch. Non-floating state is moved to the parameter device without
-        dtype conversion; afterwards reinterpret the identical bytes as FP32.
-        This also handles odd-sized FP16 parameter tensors because the view is
-        performed on the FP32 state, not on the parameter itself.
+        PyTorch's generic optimizer loader intentionally converts every tensor
+        state associated with a floating parameter to that parameter's dtype.
+        DFC cannot use that policy: ``exp_avg`` and ``exp_avg_sq`` are physical
+        FP32 containers even when the model parameter is FP16/BF16, and their
+        low words contain payload.  This loader performs the same positional
+        parameter-ID mapping while preserving FP32 moment bytes exactly.
         """
         if not isinstance(state_dict, dict) or "state" not in state_dict or "param_groups" not in state_dict:
             raise ValueError("invalid optimizer state_dict")
-        protected_state = {}
-        for sid, saved_state in state_dict["state"].items():
-            copied = dict(saved_state)
-            for key in ("exp_avg", "exp_avg_sq"):
-                if key not in copied:
-                    continue
-                tensor = copied[key]
-                if not isinstance(tensor, torch.Tensor) or tensor.dtype != torch.float32:
-                    raise TypeError(f"{key} must be a physical float32 container")
-                copied[key] = tensor.detach().contiguous().view(torch.int32).clone()
-            protected_state[sid] = copied
-        protected = {
-            "state": protected_state,
-            "param_groups": state_dict["param_groups"],
-        }
-        super().load_state_dict(protected)
+
+        groups = self.param_groups
+        saved_groups = copy.deepcopy(state_dict["param_groups"])
+        if len(groups) != len(saved_groups):
+            raise ValueError("loaded state dict has a different number of parameter groups")
+        if any(len(g["params"]) != len(sg["params"]) for g, sg in zip(groups, saved_groups)):
+            raise ValueError("loaded state dict parameter-group size mismatch")
+
+        id_map = dict(zip(
+            chain.from_iterable(g["params"] for g in saved_groups),
+            chain.from_iterable(g["params"] for g in groups),
+        ))
+        new_state = defaultdict(dict)
+        for saved_id, saved_state in state_dict["state"].items():
+            if saved_id not in id_map:
+                new_state[saved_id] = copy.deepcopy(saved_state)
+                continue
+            parameter = id_map[saved_id]
+            restored = {}
+            for key, value in saved_state.items():
+                if isinstance(value, torch.Tensor):
+                    if key in ("exp_avg", "exp_avg_sq"):
+                        if value.dtype != torch.float32:
+                            raise TypeError(f"{key} must be a physical float32 container")
+                        # float32 -> float32 device copy is bit-preserving.
+                        restored[key] = value.detach().to(
+                            device=parameter.device, dtype=torch.float32
+                        ).contiguous().clone()
+                    else:
+                        # Preserve non-moment tensor dtype; only relocate device.
+                        restored[key] = value.detach().to(device=parameter.device).clone()
+                else:
+                    restored[key] = copy.deepcopy(value)
+            new_state[parameter] = restored
+
+        new_groups = []
+        for current, saved in zip(groups, saved_groups):
+            saved["params"] = current["params"]
+            if "param_names" in current and "param_names" not in saved:
+                saved["param_names"] = current["param_names"]
+            new_groups.append(saved)
+        self.__setstate__({"state": new_state, "param_groups": new_groups})
+
+        # Fail closed: the physical contract must survive every reload.
         for group in self.param_groups:
             for parameter in group["params"]:
                 state = self.state[parameter]
                 for key in ("exp_avg", "exp_avg_sq"):
-                    if key not in state:
-                        continue
-                    bits = state[key]
-                    if bits.dtype != torch.int32:
-                        raise RuntimeError(f"protected {key} was unexpectedly cast to {bits.dtype}")
-                    state[key] = bits.contiguous().view(torch.float32)
+                    if key in state and state[key].dtype != torch.float32:
+                        raise RuntimeError(f"{key} reload violated physical FP32 contract")
         return None
 
     @torch.no_grad()
@@ -138,8 +147,6 @@ class DFCLow16AdamWChunked(DFCLow16AdamW):
                     if parameter.dtype == torch.float32:
                         pf.addcdiv_(first_use, denominator, value=-step_size)
                     else:
-                        # Mixed-precision-safe final ratio. In particular,
-                        # eps=1e-8 need not be representable in FP16.
                         update = first_use.div(denominator).mul_(-step_size)
                         pf.add_(update.to(dtype=parameter.dtype))
         return loss
