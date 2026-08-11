@@ -1,0 +1,64 @@
+name: DFC-EF randomized property stress
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - '.github/workflows/dfc-ef-property-fuzz.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install numpy
+      - name: Randomized paired optimizer/compressor stress
+        working-directory: remote
+        env:
+          OMP_NUM_THREADS: '1'
+          MKL_NUM_THREADS: '1'
+        run: |
+          mkdir -p ../results/property_fuzz
+          python - <<'PY'
+          import hashlib,json,random,time,torch
+          from block_topk_ef import block_topk_external_inplace_,block_topk_dfc_inplace_
+          from chunked_low16_adamw import DFCLow16AdamWChunked
+          from dfc_ef import PackedFP32Residual
+          from torch_fiber import HIGH16_MASK_I32
+          torch.set_num_threads(1); random.seed(260812)
+          cases=[]; started=time.perf_counter()
+          for case in range(80):
+              seed=10000+case; gen=torch.Generator().manual_seed(seed)
+              n=random.randint(257,12000); dtype=torch.float32 if case%2==0 else torch.float16
+              chunk=random.choice([31,127,509,2048,8192]); keep=random.choice([0.03125,0.0625,0.125,0.25,0.5,1.0]); lr=random.choice([1e-4,3e-4,1e-3]); wd=random.choice([0.0,0.01]); steps=random.choice([7,13,23])
+              init=torch.randn(n,generator=gen,dtype=torch.float32).to(dtype); pe=torch.nn.Parameter(init.clone()); pd=torch.nn.Parameter(init.clone())
+              oe=DFCLow16AdamWChunked([pe],lr=lr,weight_decay=wd,enable_fiber=False,chunk_coordinates=chunk)
+              od=DFCLow16AdamWChunked([pd],lr=lr,weight_decay=wd,enable_fiber=True,chunk_coordinates=chunk)
+              r=torch.zeros(n,dtype=torch.float32); ch=PackedFP32Residual(od); ch.zero_(); sent_e=sent_d=0
+              for step in range(steps):
+                  g=torch.randn(n,generator=gen,dtype=torch.float32).to(dtype); ge=g.clone(); gd=g.clone()
+                  sent_e+=block_topk_external_inplace_(ge,r,keep_ratio=keep,chunk_coordinates=chunk)
+                  sent_d+=block_topk_dfc_inplace_(pd,gd,ch,keep_ratio=keep,chunk_coordinates=chunk)
+                  assert torch.equal(ge,gd); assert torch.equal(r.view(torch.int32),ch.read_for_parameter(pd).view(torch.int32)); assert sent_e==sent_d
+                  pe.grad=ge; pd.grad=gd; oe.step(); od.step(); assert torch.equal(pe,pd)
+                  se=oe.state[pe]; sd=od.state[pd]
+                  assert torch.equal(se['exp_avg'].view(torch.int32)&HIGH16_MASK_I32,sd['exp_avg'].view(torch.int32)&HIGH16_MASK_I32)
+                  assert torch.equal(se['exp_avg_sq'].view(torch.int32)&HIGH16_MASK_I32,sd['exp_avg_sq'].view(torch.int32)&HIGH16_MASK_I32)
+              cases.append({'case':case,'seed':seed,'n':n,'dtype':str(dtype),'chunk':chunk,'keep_ratio':keep,'lr':lr,'weight_decay':wd,'steps':steps,'sent_values':sent_e})
+          raw=json.dumps(cases,sort_keys=True,separators=(',',':')).encode(); out={'schema_version':1,'protocol':'dfc-ef-randomized-property-fuzz-v1','status':'PASS','cases':len(cases),'optimizer_updates':sum(x['steps'] for x in cases),'elapsed_seconds':time.perf_counter()-started,'cases_sha256':hashlib.sha256(raw).hexdigest(),'parameter_dtypes':['float32','float16'],'keep_ratios':sorted(set(x['keep_ratio'] for x in cases)),'claim_boundary':'Randomized CPU property stress of matched external vs DFC placement; not a statistical learning benchmark.'}
+          open('../results/property_fuzz/summary.json','w').write(json.dumps(out,indent=2,sort_keys=True)+'\n'); print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-ef-property-fuzz
+          path: results/property_fuzz/summary.json
+          retention-days: 30
