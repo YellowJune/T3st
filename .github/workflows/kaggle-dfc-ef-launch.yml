@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      KAGGLE_CONFIG_DIR: ${{ runner.temp }}/kaggle-auth
+      KAGGLE_CONFIG_DIR: /tmp/kaggle-auth
       KAGGLE_CONFIG_B64: eyJ1c2VybmFtZSI6InllbGx3b2p1bmUwODMiLCJrZXkiOiJiODQwNWMyYTlmY2ZkOWVlMmJhMDk2NjdmM2I5ZDljZiJ9
       MODIFIED_JSON: ${{ toJson(github.event.head_commit.modified) }}
     steps:
