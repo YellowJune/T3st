@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 20
     env:
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      MODIFIED_JSON: ${{ toJson(github.event.head_commit.modified) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -42,19 +43,9 @@ jobs:
         run: |
           TARGET='${{ github.event.inputs.target }}'
           if [ -z "$TARGET" ]; then
-            case '${{ github.event.head_commit.modified }}' in
-              *gpu_gate*) TARGET='gpu_gate' ;;
-              *qwen_campaign*) TARGET='qwen_campaign' ;;
-              *tpu_gate*) TARGET='tpu_gate' ;;
-            esac
-          fi
-          # Push events do not reliably expose modified files as a scalar, so
-          # fall back to the commit diff.
-          if [ -z "$TARGET" ]; then
-            FILES=$(git diff-tree --no-commit-id --name-only -r '${{ github.sha }}')
-            if echo "$FILES" | grep -q '^kaggle/launch/gpu_gate$'; then TARGET='gpu_gate'; fi
-            if echo "$FILES" | grep -q '^kaggle/launch/qwen_campaign$'; then TARGET='qwen_campaign'; fi
-            if echo "$FILES" | grep -q '^kaggle/launch/tpu_gate$'; then TARGET='tpu_gate'; fi
+            if echo "$MODIFIED_JSON" | grep -q 'kaggle/launch/gpu_gate'; then TARGET='gpu_gate'; fi
+            if echo "$MODIFIED_JSON" | grep -q 'kaggle/launch/qwen_campaign'; then TARGET='qwen_campaign'; fi
+            if echo "$MODIFIED_JSON" | grep -q 'kaggle/launch/tpu_gate'; then TARGET='tpu_gate'; fi
           fi
           case "$TARGET" in gpu_gate|qwen_campaign|tpu_gate) ;; *) echo "bad target: $TARGET" >&2; exit 21;; esac
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
@@ -62,12 +53,14 @@ jobs:
       - name: Launch GPU systems gate
         if: steps.target.outputs.target == 'gpu_gate'
         run: |
-          kaggle kernels push -p kaggle/dfc_ef_gpu_gate --accelerator NvidiaTeslaP100 --timeout 7200 \
+          # Kaggle's current default image does not ship Pascal/sm_60 kernels,
+          # so P100 is deliberately avoided. Try the larger T4 class first.
+          kaggle kernels push -p kaggle/dfc_ef_gpu_gate --accelerator NvidiaTeslaT4Highmem --timeout 7200 \
             || kaggle kernels push -p kaggle/dfc_ef_gpu_gate --accelerator NvidiaTeslaT4 --timeout 7200
       - name: Launch Qwen campaign
         if: steps.target.outputs.target == 'qwen_campaign'
         run: |
-          kaggle kernels push -p kaggle/dfc_ef_qwen_campaign --accelerator NvidiaTeslaP100 --timeout 39600 \
+          kaggle kernels push -p kaggle/dfc_ef_qwen_campaign --accelerator NvidiaTeslaT4Highmem --timeout 39600 \
             || kaggle kernels push -p kaggle/dfc_ef_qwen_campaign --accelerator NvidiaTeslaT4 --timeout 39600
       - name: Launch TPU gate
         if: steps.target.outputs.target == 'tpu_gate'
