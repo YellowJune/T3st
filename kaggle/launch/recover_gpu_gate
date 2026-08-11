@@ -1,4 +1,4 @@
 recover dfc-ef gpu systems gate
-requested_utc=2026-08-12T07:45:00+09:00
-source_run=31543341911
-mode=post-failure-full-output
+requested_utc=2026-08-12T07:50:00+09:00
+source_run=31543917361
+mode=live-probe-attempt-5
