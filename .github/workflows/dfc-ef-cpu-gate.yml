@@ -6,6 +6,8 @@ on:
     paths:
       - 'remote/dfc_ef.py'
       - 'remote/test_dfc_ef.py'
+      - 'remote/kaggle_checkpoint.py'
+      - 'remote/test_kaggle_checkpoint.py'
       - 'remote/torch_fiber.py'
       - '.github/workflows/dfc-ef-cpu-gate.yml'
   workflow_dispatch:
@@ -25,7 +27,8 @@ jobs:
       - name: Install CPU dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install numpy pytest torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy pytest
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Run DFC-EF exactness and checkpoint gates
         working-directory: remote
-        run: python -m pytest -q test_dfc_ef.py
+        run: python -m pytest -q test_dfc_ef.py test_kaggle_checkpoint.py
