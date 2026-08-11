@@ -1,9 +1,9 @@
 launch dfc-ef gpu systems gate
 predeclared_protocol=docs/DFC_EF_FREE_VALIDATION_PROTOCOL.md
-requested_utc=2026-08-12T08:05:00+09:00
+requested_utc=2026-08-12T08:13:00+09:00
 mode=sealed_cuda_hbm_frontier
-attempt=7
+attempt=8
 p100_compat=torch-2.7.1-cu126
 checkpoint_loader=direct-bit-preserving-fp32-containers
 cpu_271_regression=PASS
-memory_frontier=v2-fail-closed-device-index
+memory_frontier=v3-fresh-process-no-peak-reset
