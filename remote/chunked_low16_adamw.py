@@ -30,6 +30,52 @@ class DFCLow16AdamWChunked(DFCLow16AdamW):
         self.chunk_coordinates = int(chunk_coordinates)
         super().__init__(*args, **kwargs)
 
+    def load_state_dict(self, state_dict):
+        """Load without letting PyTorch cast physical FP32 moments to param dtype.
+
+        ``torch.optim.Optimizer.load_state_dict`` normally casts floating state
+        tensors to the associated parameter dtype.  That is appropriate for
+        conventional optimizer state, but it is invalid for DFC: ``exp_avg``
+        and ``exp_avg_sq`` are *physical FP32 containers* whose low 16 words
+        carry payload.  With FP16 parameters, an ordinary load would therefore
+        both change the numerical contract and destroy payload bits.
+
+        Encode the two moment tensors as int32 bit containers before delegating
+        to PyTorch. Non-floating state is moved to the parameter device without
+        dtype conversion; afterwards reinterpret the identical bytes as FP32.
+        This also handles odd-sized FP16 parameter tensors because the view is
+        performed on the FP32 state, not on the parameter itself.
+        """
+        if not isinstance(state_dict, dict) or "state" not in state_dict or "param_groups" not in state_dict:
+            raise ValueError("invalid optimizer state_dict")
+        protected_state = {}
+        for sid, saved_state in state_dict["state"].items():
+            copied = dict(saved_state)
+            for key in ("exp_avg", "exp_avg_sq"):
+                if key not in copied:
+                    continue
+                tensor = copied[key]
+                if not isinstance(tensor, torch.Tensor) or tensor.dtype != torch.float32:
+                    raise TypeError(f"{key} must be a physical float32 container")
+                copied[key] = tensor.detach().contiguous().view(torch.int32).clone()
+            protected_state[sid] = copied
+        protected = {
+            "state": protected_state,
+            "param_groups": state_dict["param_groups"],
+        }
+        super().load_state_dict(protected)
+        for group in self.param_groups:
+            for parameter in group["params"]:
+                state = self.state[parameter]
+                for key in ("exp_avg", "exp_avg_sq"):
+                    if key not in state:
+                        continue
+                    bits = state[key]
+                    if bits.dtype != torch.int32:
+                        raise RuntimeError(f"protected {key} was unexpectedly cast to {bits.dtype}")
+                    state[key] = bits.contiguous().view(torch.float32)
+        return None
+
     @torch.no_grad()
     def step(self, closure=None):
         loss = None
