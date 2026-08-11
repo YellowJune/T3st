@@ -24,6 +24,16 @@ def _safe_build_optimizer(method, params, args):
     return _original_build_optimizer(method, params, args)
 core.build_optimizer = _safe_build_optimizer
 
+# NumPy cannot directly materialize torch.bfloat16.  Hash the physical BF16
+# words as uint16 bytes so placement comparisons remain bitwise, not numeric.
+def _bf16_safe_hash_tensor(h, tensor: torch.Tensor) -> None:
+    x=tensor.detach().contiguous().cpu()
+    if x.dtype == torch.bfloat16:
+        h.update(x.view(torch.uint16).numpy().tobytes())
+    else:
+        h.update(x.numpy().tobytes())
+core._update_hash_tensor = _bf16_safe_hash_tensor
+
 _orig_from_pretrained = transformers.AutoModelForCausalLM.from_pretrained
 
 def _bf16_from_pretrained(*args, **kwargs):
