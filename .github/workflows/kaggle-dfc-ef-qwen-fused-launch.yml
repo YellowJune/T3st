@@ -39,42 +39,30 @@ jobs:
           import json, os
           p=os.path.join(os.environ['KAGGLE_CONFIG_DIR'],'kaggle.json')
           d=json.load(open(p))
-          print('::add-mask::'+d['key'])
-          with open(os.environ['GITHUB_ENV'],'a') as f:
-              f.write('KAGGLE_USERNAME='+d['username']+'\n')
-              f.write('KAGGLE_KEY='+d['key']+'\n')
-          print('Credential structure validated for', d['username'])
-          PY
-            echo "KAGGLE_AUTH_MODE=legacy_env" >> "$GITHUB_ENV"
-          elif [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then
-            echo "::add-mask::$KAGGLE_KEY"
-            echo "KAGGLE_AUTH_MODE=legacy_env" >> "$GITHUB_ENV"
-          elif [ -f kaggle/launch/.tmp_kaggle_auth.json ]; then
-            python - <<'PY'
-          import json, os
-          d=json.load(open('kaggle/launch/.tmp_kaggle_auth.json'))
           assert d.get('username') and len(d.get('key','')) >= 20
-          print('::add-mask::'+d['key'])
-          with open(os.environ['GITHUB_ENV'],'a') as f:
-              f.write('KAGGLE_USERNAME='+d['username']+'\n')
-              f.write('KAGGLE_KEY='+d['key']+'\n')
-          print('Temporary diagnostic credential loaded for', d['username'])
+          print('Legacy Kaggle credential structure validated for', d['username'])
           PY
+            echo "KAGGLE_AUTH_MODE=legacy" >> "$GITHUB_ENV"
+          elif [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then
             echo "KAGGLE_AUTH_MODE=legacy_env" >> "$GITHUB_ENV"
           else
             echo "No supported Kaggle credential is configured" >&2
             exit 42
           fi
-      - name: Authenticate and launch fused traffic-elimination campaign
+      - name: Launch fused traffic-elimination campaign
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install 'kaggle==2.2.3'
-          kaggle --version
-          echo 'Running authenticated Kaggle preflight...'
-          kaggle kernels list --mine --page-size 1 >/tmp/kaggle-preflight.txt
-          echo 'Kaggle API authentication preflight passed.'
-          kaggle kernels push -p kaggle/dfc_ef_qwen_fused_campaign --accelerator NvidiaTeslaT4Highmem --timeout 39600 \
-            || kaggle kernels push -p kaggle/dfc_ef_qwen_fused_campaign --accelerator NvidiaTeslaT4 --timeout 39600
+          if [ "$KAGGLE_AUTH_MODE" = token ]; then
+            python -m pip install --quiet 'kaggle>=2,<3'
+            kaggle kernels list --mine --page-size 1 >/dev/null
+            kaggle kernels push -p kaggle/dfc_ef_qwen_fused_campaign --accelerator NvidiaTeslaT4Highmem --timeout 39600 \
+              || kaggle kernels push -p kaggle/dfc_ef_qwen_fused_campaign --accelerator NvidiaTeslaT4 --timeout 39600
+          else
+            python -m pip install --quiet 'kaggle==1.8.4'
+            kaggle kernels list --mine --page-size 1 >/dev/null
+            kaggle kernels push -p kaggle/dfc_ef_qwen_fused_campaign --acc NvidiaTeslaT4Highmem --timeout 39600 \
+              || kaggle kernels push -p kaggle/dfc_ef_qwen_fused_campaign --acc NvidiaTeslaT4 --timeout 39600
+          fi
           sleep 5
           kaggle kernels status yellwojune083/dfc-ef-qwen-fused-traffic-campaign
