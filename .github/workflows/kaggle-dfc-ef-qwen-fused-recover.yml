@@ -1,0 +1,51 @@
+name: Recover DFC-EF fused Qwen traffic evidence
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - 'kaggle/launch/qwen_fused_traffic_recover'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      KAGGLE_CONFIG_DIR: ${{ runner.temp }}/kaggle-auth
+      KAGGLE_CONFIG_B64: ${{ secrets.KAGGLE_CONFIG_B64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Kaggle credential from Actions secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KAGGLE_CONFIG_B64"
+          umask 077
+          mkdir -p "$KAGGLE_CONFIG_DIR"
+          printf '%s' "$KAGGGLE_CONFIG_B64" | base64 --decode > "$KAGGLE_CONFIG_DIR/kaggle.json"
+      - name: Recover status and outputs
+        shell: bash
+        run: |
+          set -uo pipefail
+          python -m pip install --quiet 'kaggle>=2,<3'
+          mkdir -p fused_status fused_output
+          kaggle kernels status yellwojune083/dfc-ef-qwen-fused-traffic-campaign | tee fused_status/status.txt || true
+          kaggle kernels files yellwojune083/dfc-ef-qwen-fused-traffic-campaign > fused_status/files.txt 2>&1 || true
+          kaggle kernels output yellwojune083/dfc-ef-qwen-fused-traffic-campaign -p fused_output -o > fused_status/output_fetch.txt 2>&1 || true
+          find fused_output -maxdepth 4 -type f -printf '%p %s bytes\n' | sort | tee fused_status/recovered_files.txt || true
+      - name: Upload fused recovery evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: dfc-ef-qwen-fused-recovery-${{ github.sha }}
+          path: |
+            fused_status/
+            fused_output/
+          if-no-files-found: warn
+          retention-days: 30

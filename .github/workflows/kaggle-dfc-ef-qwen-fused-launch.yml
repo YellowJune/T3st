@@ -1,0 +1,48 @@
+name: Launch DFC-EF fused Qwen traffic campaign
+
+on:
+  push:
+    branches: [dfc-h200-final]
+    paths:
+      - 'kaggle/launch/qwen_fused_traffic_campaign'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  launch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      KAGGLE_CONFIG_DIR: ${{ runner.temp }}/kaggle-auth
+      KAGGLE_CONFIG_B64: ${{ secrets.KAGGLE_CONFIG_B64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Kaggle credential from Actions secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KAGGLE_CONFIG_B64"
+          umask 077
+          mkdir -p "$KAGGLE_CONFIG_DIR"
+          printf '%s' "$KAGGLE_CONFIG_B64" | base64 --decode > "$KAGGLE_CONFIG_DIR/kaggle.json"
+          python - <<'PY'
+          import json, os
+          p=os.path.join(os.environ['KAGGLE_CONFIG_DIR'],'kaggle.json')
+          d=json.load(open(p))
+          assert d.get('username') and len(d.get('key','')) >= 20
+          print('Kaggle credential validated for', d['username'])
+          PY
+      - name: Launch fused traffic-elimination campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet 'kaggle>=2,<3'
+          kaggle kernels push -p kaggle/dfc_ef_qwen_fused_campaign --accelerator NvidiaTeslaT4Highmem --timeout 39600 \
+            || kaggle kernels push -p kaggle/dfc_ef_qwen_fused_campaign --accelerator NvidiaTeslaT4 --timeout 39600
+          sleep 5
+          kaggle kernels status yellwojune083/dfc-ef-qwen-fused-traffic-campaign
