@@ -17,6 +17,9 @@ jobs:
     env:
       KAGGLE_CONFIG_DIR: /tmp/kaggle-auth
       KAGGLE_CONFIG_B64: ${{ secrets.KAGGLE_CONFIG_B64 }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -26,10 +29,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$KAGGLE_CONFIG_B64"
-          umask 077
-          mkdir -p "$KAGGLE_CONFIG_DIR"
-          printf '%s' "$KAGGLE_CONFIG_B64" | base64 --decode > "$KAGGLE_CONFIG_DIR/kaggle.json"
+          if [ -n "$KAGGLE_API_TOKEN" ]; then
+            echo "Using KAGGLE_API_TOKEN secret"
+          elif [ -n "$KAGGLE_CONFIG_B64" ]; then
+            umask 077
+            mkdir -p "$KAGGLE_CONFIG_DIR"
+            printf '%s' "$KAGGLE_CONFIG_B64" | base64 --decode > "$KAGGLE_CONFIG_DIR/kaggle.json"
+          elif [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then
+            echo "Using KAGGLE_USERNAME/KAGGLE_KEY secrets"
+          else
+            echo "No supported Kaggle Actions secret is configured" >&2
+            exit 42
+          fi
       - name: Recover status and outputs
         shell: bash
         run: |
