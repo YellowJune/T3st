@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      KAGGLE_CONFIG_DIR: ${{ runner.temp }}/kaggle-auth
+      KAGGLE_CONFIG_DIR: /tmp/kaggle-auth
       KAGGLE_CONFIG_B64: ${{ secrets.KAGGLE_CONFIG_B64 }}
     steps:
       - uses: actions/checkout@v4

@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      KAGGLE_CONFIG_DIR: ${{ runner.temp }}/kaggle-auth
+      KAGGLE_CONFIG_DIR: /tmp/kaggle-auth
       KAGGLE_CONFIG_B64: ${{ secrets.KAGGLE_CONFIG_B64 }}
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +29,7 @@ jobs:
           test -n "$KAGGLE_CONFIG_B64"
           umask 077
           mkdir -p "$KAGGLE_CONFIG_DIR"
-          printf '%s' "$KAGGGLE_CONFIG_B64" | base64 --decode > "$KAGGLE_CONFIG_DIR/kaggle.json"
+          printf '%s' "$KAGGLE_CONFIG_B64" | base64 --decode > "$KAGGLE_CONFIG_DIR/kaggle.json"
       - name: Recover status and outputs
         shell: bash
         run: |
