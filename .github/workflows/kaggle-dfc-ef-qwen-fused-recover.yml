@@ -47,9 +47,9 @@ jobs:
           set -uo pipefail
           python -m pip install --quiet 'kaggle>=2,<3'
           mkdir -p fused_status fused_output
-          kaggle kernels status yellwojune083/dfc-ef-qwen-fused-traffic-campaign | tee fused_status/status.txt || true
-          kaggle kernels files yellwojune083/dfc-ef-qwen-fused-traffic-campaign > fused_status/files.txt 2>&1 || true
-          kaggle kernels output yellwojune083/dfc-ef-qwen-fused-traffic-campaign -p fused_output -o > fused_status/output_fetch.txt 2>&1 || true
+          kaggle kernels status yellwojune083/dfc-ef-qwen-fused-traffic-elimination-campaign | tee fused_status/status.txt || true
+          kaggle kernels files yellwojune083/dfc-ef-qwen-fused-traffic-elimination-campaign > fused_status/files.txt 2>&1 || true
+          kaggle kernels output yellwojune083/dfc-ef-qwen-fused-traffic-elimination-campaign -p fused_output -o > fused_status/output_fetch.txt 2>&1 || true
           find fused_output -maxdepth 4 -type f -printf '%p %s bytes\n' | sort | tee fused_status/recovered_files.txt || true
       - name: Upload fused recovery evidence
         uses: actions/upload-artifact@v4
