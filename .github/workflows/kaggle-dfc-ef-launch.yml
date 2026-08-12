@@ -18,15 +18,17 @@ jobs:
     timeout-minutes: 120
     env:
       KAGGLE_CONFIG_DIR: /tmp/kaggle-auth
-      KAGGLE_CONFIG_B64: eyJ1c2VybmFtZSI6InllbGx3b2p1bmUwODMiLCJrZXkiOiJiODQwNWMyYTlmY2ZkOWVlMmJhMDk2NjdmM2I5ZDljZiJ9
+      KAGGLE_CONFIG_B64: ${{ secrets.KAGGLE_CONFIG_B64 }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install temporary legacy Kaggle credential
+      - name: Install Kaggle credential from GitHub Actions secret
         shell: bash
         run: |
+          set -euo pipefail
+          test -n "$KAGGLE_CONFIG_B64"
           umask 077
           mkdir -p "$KAGGLE_CONFIG_DIR"
           printf '%s' "$KAGGLE_CONFIG_B64" | base64 --decode > "$KAGGLE_CONFIG_DIR/kaggle.json"
@@ -35,7 +37,7 @@ jobs:
           p=os.path.join(os.environ['KAGGLE_CONFIG_DIR'],'kaggle.json')
           d=json.load(open(p))
           assert d.get('username') and len(d.get('key','')) >= 20
-          print('legacy credential file validated for', d['username'])
+          print('Kaggle credential file validated for', d['username'])
           PY
       - name: Install official Kaggle CLI
         run: |
