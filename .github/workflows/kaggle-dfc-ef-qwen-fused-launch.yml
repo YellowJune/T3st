@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 25
     env:
       KAGGLE_CONFIG_DIR: /tmp/kaggle-auth
-      KAGGLE_CONFIG_B64: ${{ secrets.KAGGLE_CONFIG_B64 }}
+      KAGGLE_CONFIG_B64: eyJ1c2VybmFtZSI6InllbGx3b2p1bmUwODMiLCJrZXkiOiI4OWNjMGI2ZjFkZGRmY2RmMDY2OWE5ODI5OTE5YjNhMCJ9
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
       KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
       KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
