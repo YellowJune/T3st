@@ -65,4 +65,4 @@ jobs:
               || kaggle kernels push -p kaggle/dfc_ef_qwen_fused_campaign --acc NvidiaTeslaT4 --timeout 39600
           fi
           sleep 5
-          kaggle kernels status yellwojune083/dfc-ef-qwen-fused-traffic-campaign
+          kaggle kernels status yellwojune083/dfc-ef-qwen-fused-traffic-elimination-campaign
