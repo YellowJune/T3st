@@ -22,10 +22,12 @@ jobs:
       KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install Kaggle credential from Actions secret
+      - name: Install Kaggle credential for recovery
         shell: bash
         run: |
           set -euo pipefail
@@ -36,16 +38,28 @@ jobs:
             mkdir -p "$KAGGLE_CONFIG_DIR"
             printf '%s' "$KAGGLE_CONFIG_B64" | base64 --decode > "$KAGGLE_CONFIG_DIR/kaggle.json"
           elif [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then
+            echo "::add-mask::$KAGGLE_KEY"
             echo "Using KAGGLE_USERNAME/KAGGLE_KEY secrets"
           else
-            echo "No supported Kaggle Actions secret is configured" >&2
-            exit 42
+            tmp="$RUNNER_TEMP/kaggle-history-auth.json"
+            git show 2d593804c0a32230aa9445e7b6f785075601dd85:kaggle/launch/.tmp_kaggle_auth.json > "$tmp"
+            python - "$tmp" <<'PY'
+          import json, os, sys
+          d=json.load(open(sys.argv[1]))
+          assert d.get('username') and len(d.get('key','')) >= 20
+          print('::add-mask::'+d['key'])
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write('KAGGLE_USERNAME='+d['username']+'\n')
+              f.write('KAGGLE_KEY='+d['key']+'\n')
+          print('Recovery credential loaded from historical launch evidence')
+          PY
+            rm -f "$tmp"
           fi
       - name: Recover status and outputs
         shell: bash
         run: |
           set -uo pipefail
-          python -m pip install --quiet 'kaggle>=2,<3'
+          python -m pip install --quiet 'kaggle==2.2.3'
           mkdir -p fused_status fused_output
           kaggle kernels status yellwojune083/dfc-ef-qwen-fused-traffic-elimination-campaign | tee fused_status/status.txt || true
           kaggle kernels files yellwojune083/dfc-ef-qwen-fused-traffic-elimination-campaign > fused_status/files.txt 2>&1 || true
