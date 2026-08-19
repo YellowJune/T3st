@@ -1,0 +1,103 @@
+{
+  "accuracy_matrix": [
+    [
+      0.421875,
+      NaN,
+      NaN,
+      NaN
+    ],
+    [
+      0.234375,
+      0.25,
+      NaN,
+      NaN
+    ],
+    [
+      0.25,
+      0.265625,
+      0.25,
+      NaN
+    ],
+    [
+      0.234375,
+      0.15625,
+      0.21875,
+      0.296875
+    ]
+  ],
+  "average_forgetting": 0.109375,
+  "batch_size": 4,
+  "current_slots_per_update": 3,
+  "current_task_accuracy": 0.3046875,
+  "dataset": "fancyzhx/ag_news",
+  "dataset_subset_sha256": "35b49762941f4e29c256ad1bd3bc18050f1b522405937feb7cd0ed050327da79",
+  "distill_weight": 0.025,
+  "eval_per_class": 16,
+  "external_bytes": 512,
+  "final_average_accuracy": 0.2265625,
+  "label_permutations": [
+    [
+      0,
+      1,
+      2,
+      3
+    ],
+    [
+      1,
+      2,
+      3,
+      0
+    ],
+    [
+      2,
+      3,
+      0,
+      1
+    ],
+    [
+      3,
+      0,
+      1,
+      2
+    ]
+  ],
+  "lora_last_layers": 4,
+  "lora_rank": 4,
+  "lr": 0.01,
+  "mean_training_loss": 5.278207215359241,
+  "method": "dfc_sign_derpp",
+  "model": "Qwen/Qwen2.5-0.5B",
+  "num_labels": 4,
+  "processed_text_slots": 1536,
+  "protocol": "qwen-agnews-taskperm-lora-v1",
+  "record_bytes": 120,
+  "record_capacity": 54,
+  "records_final": 54,
+  "records_seen": 1152,
+  "replay_fraction": 0.25,
+  "replay_slots_per_update": 1,
+  "requested_model_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "resolved_dataset_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+  "resolved_model_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "result_sha256": "bb28480d62d4cd96efb41d7daaae8cdfdea4e9ff8af5edf21752148cc834dc77",
+  "schema_version": 1,
+  "seed": 1693,
+  "seq_len": 24,
+  "sign_fiber_bytes": 6080,
+  "steps_per_task": 96,
+  "store_sha256": "26749539b28bdfec6bde40cdbba7e675e71e1a9ba470c3a6c241da79798e96cc",
+  "task_names": [
+    "alpha",
+    "beta",
+    "gamma",
+    "delta"
+  ],
+  "tasks": 4,
+  "torch": "2.7.1+cpu",
+  "total_model_parameters": 494084992,
+  "train_per_class": 8,
+  "trainable_parameters": 48640,
+  "updates": 384,
+  "wall_seconds": 350.06466968999996,
+  "weight_decay": 0.0
+}
