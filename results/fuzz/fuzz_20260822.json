@@ -1,0 +1,2814 @@
+{
+  "active_coordinate_updates": 2592477,
+  "configuration_digest_sha256": "e36d87ca6bde6c154cee71f9e376f394ebb305f3b1e08d9d08ae51986a2da280",
+  "coverage": {
+    "beta1": [
+      0.0,
+      0.5,
+      0.9,
+      0.95,
+      0.99
+    ],
+    "beta2": [
+      0.5,
+      0.9,
+      0.99,
+      0.999,
+      0.9999
+    ],
+    "dtypes": [
+      "bfloat16",
+      "float16",
+      "float32"
+    ],
+    "tensor_count_max": 5,
+    "tensor_count_min": 1,
+    "weight_decay": [
+      0.0,
+      0.0001,
+      0.01,
+      0.1
+    ]
+  },
+  "environment": {
+    "cuda_available": false,
+    "numpy": "2.5.2",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "python": "3.12.13 (main, Jun 16 2026, 22:05:08) [GCC 13.3.0]",
+    "torch": "2.13.0+cpu"
+  },
+  "excluded_claims": [
+    "GPU performance",
+    "accelerator counters",
+    "H100-class behavior"
+  ],
+  "finished_unix": 1787182520.536859,
+  "low16_trials": 60,
+  "oracle": "bitwise tensor-byte equality; identical non-finite reference/DFC states are treated as equal",
+  "rows": [
+    {
+      "active_coordinate_updates": 4636,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.5,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.0019244863028874634,
+        "lr": 4.6153774345313134e-05,
+        "sizes": [
+          2318
+        ],
+        "steps": 2,
+        "trial": 0,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 1.103532034000068
+    },
+    {
+      "active_coordinate_updates": 642,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.04659197708342433,
+        "lr": 0.0006112558446127206,
+        "sizes": [
+          321
+        ],
+        "steps": 3,
+        "trial": 1,
+        "weight_decay": 0.0
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0022031349999451777
+    },
+    {
+      "active_coordinate_updates": 34167,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-06,
+        "grad_scale": 0.014576120391813342,
+        "lr": 7.60913860298462e-05,
+        "sizes": [
+          2137,
+          2744
+        ],
+        "steps": 7,
+        "trial": 2,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.005679944000007708
+    },
+    {
+      "active_coordinate_updates": 53752,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.999,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.20568358435421394,
+        "lr": 0.0004309818330380203,
+        "sizes": [
+          2032,
+          1948,
+          3877,
+          3283
+        ],
+        "steps": 5,
+        "trial": 3,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.010281749000000673
+    },
+    {
+      "active_coordinate_updates": 11888,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-07,
+        "grad_scale": 0.2547086996285142,
+        "lr": 0.000228324393812762,
+        "sizes": [
+          2467,
+          2111,
+          3580,
+          1847,
+          1883
+        ],
+        "steps": 1,
+        "trial": 4,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0025852400000303533
+    },
+    {
+      "active_coordinate_updates": 34139,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.999,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.2674995807908325,
+        "lr": 0.0014057564903422464,
+        "sizes": [
+          2112,
+          2333,
+          4078,
+          595
+        ],
+        "steps": 4,
+        "trial": 5,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.008278107999899476
+    },
+    {
+      "active_coordinate_updates": 57061,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.99,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-08,
+        "grad_scale": 0.04628309126953372,
+        "lr": 0.0009707890183205701,
+        "sizes": [
+          1541,
+          3726,
+          3852,
+          1269
+        ],
+        "steps": 6,
+        "trial": 6,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.007413960000008046
+    },
+    {
+      "active_coordinate_updates": 60767,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.99,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.004818396925577767,
+        "lr": 0.0013150522213972611,
+        "sizes": [
+          1296,
+          1195,
+          3796,
+          2394
+        ],
+        "steps": 7,
+        "trial": 7,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.012680320000072243
+    },
+    {
+      "active_coordinate_updates": 1837,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-07,
+        "grad_scale": 0.14036927358521,
+        "lr": 7.511468640015801e-05,
+        "sizes": [
+          227,
+          1837
+        ],
+        "steps": 1,
+        "trial": 8,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0012423050000052172
+    },
+    {
+      "active_coordinate_updates": 61185,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.9999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 0.0001,
+        "grad_scale": 0.016950002540223393,
+        "lr": 0.0015959083332331653,
+        "sizes": [
+          3107,
+          1743,
+          3078,
+          3160,
+          1781
+        ],
+        "steps": 5,
+        "trial": 9,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.012059227000008832
+    },
+    {
+      "active_coordinate_updates": 24325,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.9,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.40639169590447555,
+        "lr": 0.0034566993628461543,
+        "sizes": [
+          276,
+          1533,
+          1619,
+          1854
+        ],
+        "steps": 5,
+        "trial": 10,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.005403435999937756
+    },
+    {
+      "active_coordinate_updates": 6840,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.09796927984951995,
+        "lr": 2.45798338803479e-05,
+        "sizes": [
+          3420
+        ],
+        "steps": 2,
+        "trial": 11,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.001971441000023333
+    },
+    {
+      "active_coordinate_updates": 56855,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-07,
+        "grad_scale": 0.010618386357597449,
+        "lr": 0.00107026229458637,
+        "sizes": [
+          407,
+          3483,
+          1551,
+          738,
+          3106
+        ],
+        "steps": 7,
+        "trial": 12,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.009702223999966009
+    },
+    {
+      "active_coordinate_updates": 6094,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-08,
+        "grad_scale": 0.002885263548253693,
+        "lr": 0.0018637789928069417,
+        "sizes": [
+          3021,
+          26
+        ],
+        "steps": 3,
+        "trial": 13,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0032057809999059828
+    },
+    {
+      "active_coordinate_updates": 21194,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.5,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.004094977804896649,
+        "lr": 0.0002684857228454694,
+        "sizes": [
+          1829,
+          491,
+          2017
+        ],
+        "steps": 5,
+        "trial": 14,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.004953623999995216
+    },
+    {
+      "active_coordinate_updates": 26736,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.5,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.006805906153108134,
+        "lr": 0.0005209956144895953,
+        "sizes": [
+          957,
+          2053,
+          559,
+          3115
+        ],
+        "steps": 4,
+        "trial": 15,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.008119350000015402
+    },
+    {
+      "active_coordinate_updates": 863,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.9,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.020997853179810382,
+        "lr": 0.00390797798936574,
+        "sizes": [
+          863
+        ],
+        "steps": 1,
+        "trial": 16,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0009956439999996292
+    },
+    {
+      "active_coordinate_updates": 54073,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.5,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 0.0001,
+        "grad_scale": 0.11078273825124625,
+        "lr": 5.2536649788283035e-05,
+        "sizes": [
+          3389,
+          944,
+          1462,
+          1049,
+          2343
+        ],
+        "steps": 6,
+        "trial": 17,
+        "weight_decay": 0.0
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.01268070000003263
+    },
+    {
+      "active_coordinate_updates": 14217,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.5,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.1628144440379692,
+        "lr": 3.5422775536497185e-05,
+        "sizes": [
+          2723,
+          980,
+          1036
+        ],
+        "steps": 4,
+        "trial": 18,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0036300059999803125
+    },
+    {
+      "active_coordinate_updates": 16993,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.9999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.28382137886955316,
+        "lr": 0.0017303778203279247,
+        "sizes": [
+          1229,
+          1761,
+          1855
+        ],
+        "steps": 5,
+        "trial": 19,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.006342733999986194
+    },
+    {
+      "active_coordinate_updates": 6538,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-06,
+        "grad_scale": 0.0017492492796544535,
+        "lr": 0.0004595247377515819,
+        "sizes": [
+          3269
+        ],
+        "steps": 2,
+        "trial": 20,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0015595799999346127
+    },
+    {
+      "active_coordinate_updates": 45121,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.9999,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.13359176884215074,
+        "lr": 0.00021827536340838596,
+        "sizes": [
+          1143,
+          4031,
+          514,
+          974,
+          1211
+        ],
+        "steps": 6,
+        "trial": 21,
+        "weight_decay": 0.0
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.012595951999969657
+    },
+    {
+      "active_coordinate_updates": 21076,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.99,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 0.0001,
+        "grad_scale": 0.30949268273083086,
+        "lr": 0.0002821740875220811,
+        "sizes": [
+          2105,
+          3164
+        ],
+        "steps": 4,
+        "trial": 22,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0034975879999592507
+    },
+    {
+      "active_coordinate_updates": 24069,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.2868218877528494,
+        "lr": 0.003910171597123475,
+        "sizes": [
+          1599,
+          2679
+        ],
+        "steps": 6,
+        "trial": 23,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.006524946000013188
+    },
+    {
+      "active_coordinate_updates": 55824,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.5,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-06,
+        "grad_scale": 0.005891734342747028,
+        "lr": 1.230349273422047e-05,
+        "sizes": [
+          1004,
+          2550,
+          2141,
+          223,
+          3155
+        ],
+        "steps": 7,
+        "trial": 24,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.009068778000028033
+    },
+    {
+      "active_coordinate_updates": 22020,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.5,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-06,
+        "grad_scale": 0.15842851707266964,
+        "lr": 2.0401661672164793e-05,
+        "sizes": [
+          3584,
+          1025
+        ],
+        "steps": 5,
+        "trial": 25,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.005695782999964649
+    },
+    {
+      "active_coordinate_updates": 61392,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.9,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.006512068105668,
+        "lr": 0.0037866582486369847,
+        "sizes": [
+          4092,
+          3892,
+          3516
+        ],
+        "steps": 6,
+        "trial": 26,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.006238739999957943
+    },
+    {
+      "active_coordinate_updates": 1925,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.9999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 0.0001,
+        "grad_scale": 0.07172579077858175,
+        "lr": 2.3478625520860272e-05,
+        "sizes": [
+          1925
+        ],
+        "steps": 1,
+        "trial": 27,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0013416519999509546
+    },
+    {
+      "active_coordinate_updates": 28264,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.18913872757313868,
+        "lr": 0.00011792182886703565,
+        "sizes": [
+          3672,
+          1048,
+          2346
+        ],
+        "steps": 4,
+        "trial": 28,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.004233446000057484
+    },
+    {
+      "active_coordinate_updates": 5520,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.9,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 0.0001,
+        "grad_scale": 0.0071441491624566105,
+        "lr": 0.00012665597340404526,
+        "sizes": [
+          1152,
+          1608
+        ],
+        "steps": 2,
+        "trial": 29,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0028705240000590493
+    },
+    {
+      "active_coordinate_updates": 16894,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.0023243120895117676,
+        "lr": 0.0001579607584928563,
+        "sizes": [
+          2151,
+          2442,
+          2633
+        ],
+        "steps": 3,
+        "trial": 30,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0031759760000795723
+    },
+    {
+      "active_coordinate_updates": 4262,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.5,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-06,
+        "grad_scale": 0.08923623482221786,
+        "lr": 3.0080390159976314e-05,
+        "sizes": [
+          2131
+        ],
+        "steps": 2,
+        "trial": 31,
+        "weight_decay": 0.0
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0019392310000512225
+    },
+    {
+      "active_coordinate_updates": 3078,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9999,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.0015974043157047026,
+        "lr": 6.212899645292396e-05,
+        "sizes": [
+          1539
+        ],
+        "steps": 2,
+        "trial": 32,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.001403898000035042
+    },
+    {
+      "active_coordinate_updates": 3602,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-06,
+        "grad_scale": 0.46137663290613096,
+        "lr": 0.0019486145394122956,
+        "sizes": [
+          3311,
+          291,
+          1317
+        ],
+        "steps": 1,
+        "trial": 33,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0023829710000882187
+    },
+    {
+      "active_coordinate_updates": 7692,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.99,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-07,
+        "grad_scale": 0.02916556130133844,
+        "lr": 0.0031327586129372025,
+        "sizes": [
+          165,
+          3681
+        ],
+        "steps": 2,
+        "trial": 34,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0021012039999277476
+    },
+    {
+      "active_coordinate_updates": 8790,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.9999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 0.0001,
+        "grad_scale": 0.09446139032142298,
+        "lr": 1.756042058899125e-05,
+        "sizes": [
+          1465
+        ],
+        "steps": 7,
+        "trial": 35,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.004273651000062273
+    },
+    {
+      "active_coordinate_updates": 56670,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-07,
+        "grad_scale": 0.002438679027311601,
+        "lr": 9.231209274366378e-05,
+        "sizes": [
+          2500,
+          1405,
+          3930,
+          2718
+        ],
+        "steps": 6,
+        "trial": 36,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.007190361000084522
+    },
+    {
+      "active_coordinate_updates": 11406,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.9,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-07,
+        "grad_scale": 0.020934322372521623,
+        "lr": 0.00035638415674732097,
+        "sizes": [
+          1899,
+          1905
+        ],
+        "steps": 4,
+        "trial": 37,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.004131835999942268
+    },
+    {
+      "active_coordinate_updates": 16236,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.9,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 0.0001,
+        "grad_scale": 0.25908740336013175,
+        "lr": 0.0005915882915102257,
+        "sizes": [
+          422,
+          1062,
+          2575
+        ],
+        "steps": 4,
+        "trial": 38,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.004007623000006788
+    },
+    {
+      "active_coordinate_updates": 10441,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.5,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-07,
+        "grad_scale": 0.0233080881772526,
+        "lr": 8.225638632733485e-05,
+        "sizes": [
+          3587,
+          3427
+        ],
+        "steps": 2,
+        "trial": 39,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0028006740000137142
+    },
+    {
+      "active_coordinate_updates": 22070,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-06,
+        "grad_scale": 0.002256364756096463,
+        "lr": 0.00029611774507338253,
+        "sizes": [
+          1974,
+          1957,
+          2186
+        ],
+        "steps": 5,
+        "trial": 40,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.004666707000069437
+    },
+    {
+      "active_coordinate_updates": 15149,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.999,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-07,
+        "grad_scale": 0.002507242512069993,
+        "lr": 0.00034166488447377204,
+        "sizes": [
+          1861,
+          3182,
+          10
+        ],
+        "steps": 3,
+        "trial": 41,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.00510581900005036
+    },
+    {
+      "active_coordinate_updates": 22524,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.9999,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-07,
+        "grad_scale": 0.0014131510554278115,
+        "lr": 0.0004608426875300367,
+        "sizes": [
+          3754
+        ],
+        "steps": 6,
+        "trial": 42,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.003312081000103717
+    },
+    {
+      "active_coordinate_updates": 5526,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-07,
+        "grad_scale": 0.014330718618247163,
+        "lr": 2.1439360561127775e-05,
+        "sizes": [
+          2763
+        ],
+        "steps": 2,
+        "trial": 43,
+        "weight_decay": 0.0
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0019803779999847393
+    },
+    {
+      "active_coordinate_updates": 4868,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.99,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-07,
+        "grad_scale": 0.007052853209373487,
+        "lr": 0.0013727572614569913,
+        "sizes": [
+          4055,
+          377,
+          436
+        ],
+        "steps": 1,
+        "trial": 44,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.001805580999985068
+    },
+    {
+      "active_coordinate_updates": 48533,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.99,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-07,
+        "grad_scale": 0.009108951585263397,
+        "lr": 1.489330980087893e-05,
+        "sizes": [
+          1170,
+          2153,
+          3770,
+          2178
+        ],
+        "steps": 6,
+        "trial": 45,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.010733575000017481
+    },
+    {
+      "active_coordinate_updates": 29663,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.9,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-07,
+        "grad_scale": 0.03602500682944821,
+        "lr": 1.109609302237638e-05,
+        "sizes": [
+          1484,
+          850,
+          3005
+        ],
+        "steps": 7,
+        "trial": 46,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.006213823999928536
+    },
+    {
+      "active_coordinate_updates": 50852,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.9999,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-07,
+        "grad_scale": 0.0013942582979096741,
+        "lr": 0.00024178335781767179,
+        "sizes": [
+          3143,
+          3750,
+          2553,
+          2735
+        ],
+        "steps": 5,
+        "trial": 47,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.009509663999892837
+    },
+    {
+      "active_coordinate_updates": 8772,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.999,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-08,
+        "grad_scale": 0.002133349716674702,
+        "lr": 6.131696573510841e-05,
+        "sizes": [
+          1937,
+          1780,
+          1440,
+          3615
+        ],
+        "steps": 1,
+        "trial": 48,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0021543330000213246
+    },
+    {
+      "active_coordinate_updates": 23244,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.5,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-06,
+        "grad_scale": 0.033514845388165,
+        "lr": 0.0010372901483009075,
+        "sizes": [
+          3874
+        ],
+        "steps": 6,
+        "trial": 49,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.004396731000042564
+    },
+    {
+      "active_coordinate_updates": 7211,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.9999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 0.0001,
+        "grad_scale": 0.04184945503321073,
+        "lr": 4.04317660552981e-05,
+        "sizes": [
+          3196,
+          273
+        ],
+        "steps": 3,
+        "trial": 50,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0024162939999996524
+    },
+    {
+      "active_coordinate_updates": 15860,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.12396946003069237,
+        "lr": 0.00012077553641356974,
+        "sizes": [
+          3172
+        ],
+        "steps": 6,
+        "trial": 51,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0038429749999977503
+    },
+    {
+      "active_coordinate_updates": 27472,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-07,
+        "grad_scale": 0.0036414931228925967,
+        "lr": 3.463079176016282e-05,
+        "sizes": [
+          3178,
+          1298,
+          1278
+        ],
+        "steps": 5,
+        "trial": 52,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.005080431999999746
+    },
+    {
+      "active_coordinate_updates": 36385,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.999,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-06,
+        "grad_scale": 0.0027651334993826866,
+        "lr": 0.0013287558984013377,
+        "sizes": [
+          3377,
+          1456,
+          3596,
+          928,
+          851
+        ],
+        "steps": 4,
+        "trial": 53,
+        "weight_decay": 0.0
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.009474427999975887
+    },
+    {
+      "active_coordinate_updates": 33389,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.99,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 0.0001,
+        "grad_scale": 0.0013607787300381298,
+        "lr": 1.92945372217502e-05,
+        "sizes": [
+          1243,
+          1101,
+          2307,
+          384,
+          2829
+        ],
+        "steps": 5,
+        "trial": 54,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.006776115999969079
+    },
+    {
+      "active_coordinate_updates": 25261,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-06,
+        "grad_scale": 0.003938230396855668,
+        "lr": 0.0018637223239520515,
+        "sizes": [
+          3859,
+          301
+        ],
+        "steps": 7,
+        "trial": 55,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.007390665999992052
+    },
+    {
+      "active_coordinate_updates": 2136,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.99,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.009855319950673647,
+        "lr": 8.5986612725793e-05,
+        "sizes": [
+          508,
+          1628
+        ],
+        "steps": 1,
+        "trial": 56,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0013524319999760337
+    },
+    {
+      "active_coordinate_updates": 28103,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.5,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-07,
+        "grad_scale": 0.005236682326976308,
+        "lr": 0.0032477839153193556,
+        "sizes": [
+          1175,
+          271,
+          596,
+          413,
+          3339
+        ],
+        "steps": 5,
+        "trial": 57,
+        "weight_decay": 0.0
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.010609293000015896
+    },
+    {
+      "active_coordinate_updates": 5863,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.002938527405461833,
+        "lr": 3.307997345408657e-05,
+        "sizes": [
+          715,
+          726,
+          1161,
+          246,
+          3987
+        ],
+        "steps": 1,
+        "trial": 58,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.002175913999963086
+    },
+    {
+      "active_coordinate_updates": 8589,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.0017434733959028393,
+        "lr": 5.011286133483946e-05,
+        "sizes": [
+          3786,
+          1253,
+          3550,
+          281
+        ],
+        "steps": 1,
+        "trial": 59,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.002991269999938595
+    },
+    {
+      "active_coordinate_updates": 33215,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-07,
+        "grad_scale": 0.005126927929088499,
+        "lr": 0.0018308912714789225,
+        "sizes": [
+          177,
+          3796,
+          1288,
+          2295,
+          997
+        ],
+        "steps": 4,
+        "trial": 60,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.005997478000040246
+    },
+    {
+      "active_coordinate_updates": 19959,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-07,
+        "grad_scale": 0.07514438607205987,
+        "lr": 0.0001657308558621587,
+        "sizes": [
+          4008,
+          1309
+        ],
+        "steps": 4,
+        "trial": 61,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.004759019999937664
+    },
+    {
+      "active_coordinate_updates": 13729,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 0.0001,
+        "grad_scale": 0.23132328708946082,
+        "lr": 0.0009538273533555739,
+        "sizes": [
+          1901,
+          1225
+        ],
+        "steps": 5,
+        "trial": 62,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.00356268000007276
+    },
+    {
+      "active_coordinate_updates": 658,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.9,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.00489141332149593,
+        "lr": 3.767249250552903e-05,
+        "sizes": [
+          83,
+          246
+        ],
+        "steps": 2,
+        "trial": 63,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0026924310000140395
+    },
+    {
+      "active_coordinate_updates": 30472,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.99,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.0023208200376802603,
+        "lr": 4.745005326800125e-05,
+        "sizes": [
+          927,
+          2425,
+          2558,
+          1252,
+          456
+        ],
+        "steps": 4,
+        "trial": 64,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.00591346099997736
+    },
+    {
+      "active_coordinate_updates": 11870,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.2040416922393189,
+        "lr": 0.0008062546643078952,
+        "sizes": [
+          3329,
+          132,
+          2474
+        ],
+        "steps": 2,
+        "trial": 65,
+        "weight_decay": 0.0
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.003928114000018468
+    },
+    {
+      "active_coordinate_updates": 15671,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.9,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.055566047688473175,
+        "lr": 1.335674483603207e-05,
+        "sizes": [
+          3970,
+          1374,
+          1661
+        ],
+        "steps": 3,
+        "trial": 66,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0030863980000503943
+    },
+    {
+      "active_coordinate_updates": 20546,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-07,
+        "grad_scale": 0.0024327042980560975,
+        "lr": 0.00085230679793433,
+        "sizes": [
+          2226,
+          1438
+        ],
+        "steps": 6,
+        "trial": 67,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.006202081999958864
+    },
+    {
+      "active_coordinate_updates": 34608,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.03240447078367293,
+        "lr": 0.00017788200650268208,
+        "sizes": [
+          2871,
+          3549,
+          1833,
+          3057
+        ],
+        "steps": 4,
+        "trial": 68,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.004891517999908501
+    },
+    {
+      "active_coordinate_updates": 11586,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.03833549047539585,
+        "lr": 0.0005361976882995221,
+        "sizes": [
+          1860,
+          620,
+          3913,
+          2699,
+          2494
+        ],
+        "steps": 1,
+        "trial": 69,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.003985992000025362
+    },
+    {
+      "active_coordinate_updates": 31449,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.5,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-07,
+        "grad_scale": 0.004137742937989238,
+        "lr": 3.418364890742127e-05,
+        "sizes": [
+          1951,
+          1809,
+          3843,
+          2682,
+          297
+        ],
+        "steps": 3,
+        "trial": 70,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.005045114999916223
+    },
+    {
+      "active_coordinate_updates": 26643,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.9,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-07,
+        "grad_scale": 0.0017538678849653285,
+        "lr": 0.0024134429929930858,
+        "sizes": [
+          3255,
+          60,
+          1797,
+          2189,
+          1580
+        ],
+        "steps": 3,
+        "trial": 71,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.007581013000049097
+    },
+    {
+      "active_coordinate_updates": 21455,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.99,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.04436508661473228,
+        "lr": 0.00020197638318601537,
+        "sizes": [
+          565,
+          1994,
+          1732
+        ],
+        "steps": 5,
+        "trial": 72,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.004802370999982486
+    },
+    {
+      "active_coordinate_updates": 9722,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.9999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 0.0001,
+        "grad_scale": 0.0028092705328067397,
+        "lr": 2.908386852163445e-05,
+        "sizes": [
+          2631,
+          2784,
+          694,
+          3613
+        ],
+        "steps": 1,
+        "trial": 73,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0032955499999616222
+    },
+    {
+      "active_coordinate_updates": 8772,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.010272549158797108,
+        "lr": 0.002477628787153918,
+        "sizes": [
+          3827,
+          3597,
+          1881,
+          630,
+          2434
+        ],
+        "steps": 1,
+        "trial": 74,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.002407306999998582
+    },
+    {
+      "active_coordinate_updates": 16801,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.9999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-07,
+        "grad_scale": 0.1745318605544213,
+        "lr": 7.499218048992813e-05,
+        "sizes": [
+          2863,
+          551,
+          537,
+          1569,
+          1310
+        ],
+        "steps": 3,
+        "trial": 75,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.006971432000000277
+    },
+    {
+      "active_coordinate_updates": 41437,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.9,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-06,
+        "grad_scale": 0.001594922093596111,
+        "lr": 1.0487070733563688e-05,
+        "sizes": [
+          1090,
+          229,
+          2335,
+          2331
+        ],
+        "steps": 7,
+        "trial": 76,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.008057065000002694
+    },
+    {
+      "active_coordinate_updates": 42315,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.9,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.002050355312103261,
+        "lr": 1.552394457046508e-05,
+        "sizes": [
+          3047,
+          2998
+        ],
+        "steps": 7,
+        "trial": 77,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.007764506999933474
+    },
+    {
+      "active_coordinate_updates": 31210,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.5,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.012930614872155327,
+        "lr": 5.364168753250604e-05,
+        "sizes": [
+          3587,
+          1981,
+          1551,
+          3005,
+          1281
+        ],
+        "steps": 3,
+        "trial": 78,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.004871951000041008
+    },
+    {
+      "active_coordinate_updates": 59645,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.99,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.06682459978922321,
+        "lr": 0.0007753918369421521,
+        "sizes": [
+          2210,
+          879,
+          3462,
+          2841
+        ],
+        "steps": 7,
+        "trial": 79,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0122918719999916
+    },
+    {
+      "active_coordinate_updates": 5870,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.5,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.02175629859498754,
+        "lr": 5.2563912689828375e-05,
+        "sizes": [
+          2935
+        ],
+        "steps": 3,
+        "trial": 80,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0017171849999613187
+    },
+    {
+      "active_coordinate_updates": 35277,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.9,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-07,
+        "grad_scale": 0.003970412943403067,
+        "lr": 2.702104901683238e-05,
+        "sizes": [
+          2242,
+          1000,
+          1395,
+          3273
+        ],
+        "steps": 5,
+        "trial": 81,
+        "weight_decay": 0.0
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.009173433999990266
+    },
+    {
+      "active_coordinate_updates": 5825,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.99,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.013855281601197329,
+        "lr": 0.00046218419495621955,
+        "sizes": [
+          1165
+        ],
+        "steps": 5,
+        "trial": 82,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0024519009999721675
+    },
+    {
+      "active_coordinate_updates": 55219,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.9,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-06,
+        "grad_scale": 0.0014939947143125562,
+        "lr": 1.838866663930111e-05,
+        "sizes": [
+          137,
+          1104,
+          2749,
+          3645,
+          1661
+        ],
+        "steps": 7,
+        "trial": 83,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.014432891000069503
+    },
+    {
+      "active_coordinate_updates": 6624,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.5,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.07053562243016007,
+        "lr": 0.00048220943070592133,
+        "sizes": [
+          1104
+        ],
+        "steps": 7,
+        "trial": 84,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0030478759999823524
+    },
+    {
+      "active_coordinate_updates": 22128,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.35223710234170164,
+        "lr": 0.0002621905477246408,
+        "sizes": [
+          3311,
+          3679,
+          55,
+          4019
+        ],
+        "steps": 2,
+        "trial": 85,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.004946280000012848
+    },
+    {
+      "active_coordinate_updates": 4144,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 0.0001,
+        "grad_scale": 0.41126001785396815,
+        "lr": 0.0004022771899410064,
+        "sizes": [
+          534,
+          561,
+          3049
+        ],
+        "steps": 1,
+        "trial": 86,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0017805539999926623
+    },
+    {
+      "active_coordinate_updates": 10791,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.5,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.03007651828436087,
+        "lr": 0.0002979732244741952,
+        "sizes": [
+          271,
+          1209,
+          288,
+          1829
+        ],
+        "steps": 3,
+        "trial": 87,
+        "weight_decay": 0.0
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.005894335999983014
+    },
+    {
+      "active_coordinate_updates": 30230,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.9,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.012091336585090769,
+        "lr": 0.00035429391215784496,
+        "sizes": [
+          972,
+          2595,
+          2479
+        ],
+        "steps": 5,
+        "trial": 88,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.005077675999928033
+    },
+    {
+      "active_coordinate_updates": 11122,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.99,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-07,
+        "grad_scale": 0.08055255693540649,
+        "lr": 0.001983093420171855,
+        "sizes": [
+          1089,
+          1863,
+          2902,
+          1158
+        ],
+        "steps": 2,
+        "trial": 89,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.004465589999995245
+    },
+    {
+      "active_coordinate_updates": 7238,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.999,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.014517365705898665,
+        "lr": 0.002433896138548757,
+        "sizes": [
+          728,
+          357
+        ],
+        "steps": 7,
+        "trial": 90,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.004723924000018087
+    },
+    {
+      "active_coordinate_updates": 22947,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.99,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 0.0001,
+        "grad_scale": 0.027006055378351646,
+        "lr": 0.000352077889552268,
+        "sizes": [
+          1341,
+          326,
+          2589
+        ],
+        "steps": 6,
+        "trial": 91,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.008588839000026383
+    },
+    {
+      "active_coordinate_updates": 1782,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.99,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-06,
+        "grad_scale": 0.05678054046809454,
+        "lr": 0.000653178757207152,
+        "sizes": [
+          891
+        ],
+        "steps": 2,
+        "trial": 92,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.001358824000021741
+    },
+    {
+      "active_coordinate_updates": 58040,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.5,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-07,
+        "grad_scale": 0.001200875591170706,
+        "lr": 0.0002351052538486496,
+        "sizes": [
+          2405,
+          2378,
+          2569,
+          2862,
+          2337
+        ],
+        "steps": 5,
+        "trial": 93,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.011931647999972483
+    },
+    {
+      "active_coordinate_updates": 4030,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.9999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-06,
+        "grad_scale": 0.0019344152673008705,
+        "lr": 0.0005801616788803554,
+        "sizes": [
+          2015
+        ],
+        "steps": 3,
+        "trial": 94,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0016923580000138827
+    },
+    {
+      "active_coordinate_updates": 16797,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.99,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.3793647140826588,
+        "lr": 7.176211265508114e-05,
+        "sizes": [
+          3456,
+          2143
+        ],
+        "steps": 3,
+        "trial": 95,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.004099244000030922
+    },
+    {
+      "active_coordinate_updates": 22458,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.003354076659364281,
+        "lr": 8.530467240562018e-05,
+        "sizes": [
+          3492,
+          3207,
+          3288,
+          828
+        ],
+        "steps": 3,
+        "trial": 96,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.00408444699996835
+    },
+    {
+      "active_coordinate_updates": 11598,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.9,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-08,
+        "grad_scale": 0.3261667919273603,
+        "lr": 2.1373162616274125e-05,
+        "sizes": [
+          3866
+        ],
+        "steps": 3,
+        "trial": 97,
+        "weight_decay": 0.0
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.00257659400006105
+    },
+    {
+      "active_coordinate_updates": 5514,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.9,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.005363186121167912,
+        "lr": 0.0017047421691552397,
+        "sizes": [
+          258,
+          1494
+        ],
+        "steps": 4,
+        "trial": 98,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0028861629999710203
+    },
+    {
+      "active_coordinate_updates": 610,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.3268115200897967,
+        "lr": 0.0006341037549295052,
+        "sizes": [
+          305
+        ],
+        "steps": 2,
+        "trial": 99,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0018035960000588602
+    },
+    {
+      "active_coordinate_updates": 19350,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.99,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-06,
+        "grad_scale": 0.0024425541218465324,
+        "lr": 0.0006665104601058491,
+        "sizes": [
+          1836,
+          807,
+          3538
+        ],
+        "steps": 4,
+        "trial": 100,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.004057267000007414
+    },
+    {
+      "active_coordinate_updates": 70989,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.30276005581825854,
+        "lr": 2.8631918733118937e-05,
+        "sizes": [
+          2389,
+          3773,
+          3830,
+          2962
+        ],
+        "steps": 7,
+        "trial": 101,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.012029060000031677
+    },
+    {
+      "active_coordinate_updates": 15504,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 0.0001,
+        "grad_scale": 0.09653397402622055,
+        "lr": 0.0002362164974271109,
+        "sizes": [
+          3876
+        ],
+        "steps": 5,
+        "trial": 102,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.002506753000034223
+    },
+    {
+      "active_coordinate_updates": 7942,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.9999,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-06,
+        "grad_scale": 0.25101397078804405,
+        "lr": 0.00011092518160956026,
+        "sizes": [
+          2025,
+          1565,
+          762
+        ],
+        "steps": 2,
+        "trial": 103,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0036374500000420085
+    },
+    {
+      "active_coordinate_updates": 2465,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.9,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.15055326477974287,
+        "lr": 0.00022117259755201474,
+        "sizes": [
+          85,
+          1190
+        ],
+        "steps": 2,
+        "trial": 104,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0018534399999907691
+    },
+    {
+      "active_coordinate_updates": 14000,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-07,
+        "grad_scale": 0.49172214692009975,
+        "lr": 0.002850469466067074,
+        "sizes": [
+          3063,
+          1348,
+          1815,
+          1204,
+          2203
+        ],
+        "steps": 2,
+        "trial": 105,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.005322234000004755
+    },
+    {
+      "active_coordinate_updates": 14750,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.0030720133764200476,
+        "lr": 1.9724916098131876e-05,
+        "sizes": [
+          2950
+        ],
+        "steps": 5,
+        "trial": 106,
+        "weight_decay": 0.0001
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0027380459999903906
+    },
+    {
+      "active_coordinate_updates": 3412,
+      "config": {
+        "beta1": 0.5,
+        "beta2": 0.9,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.013995559676653788,
+        "lr": 8.55280811726534e-05,
+        "sizes": [
+          2799,
+          613
+        ],
+        "steps": 1,
+        "trial": 107,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.001963345000035588
+    },
+    {
+      "active_coordinate_updates": 24647,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.9999,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-08,
+        "grad_scale": 0.006647871020728389,
+        "lr": 1.5537949044812684e-05,
+        "sizes": [
+          3521
+        ],
+        "steps": 7,
+        "trial": 108,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.003748517999952128
+    },
+    {
+      "active_coordinate_updates": 69223,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.99,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-08,
+        "grad_scale": 0.015404469523432746,
+        "lr": 6.024006847142371e-05,
+        "sizes": [
+          3725,
+          1661,
+          81,
+          2418,
+          3651
+        ],
+        "steps": 7,
+        "trial": 109,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.014597989999970196
+    },
+    {
+      "active_coordinate_updates": 25682,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.9999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-07,
+        "grad_scale": 0.1006012587063922,
+        "lr": 2.0456699361821278e-05,
+        "sizes": [
+          1898,
+          2816,
+          2090,
+          3632,
+          2405
+        ],
+        "steps": 2,
+        "trial": 110,
+        "weight_decay": 0.01
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.003862991999994847
+    },
+    {
+      "active_coordinate_updates": 213,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.5,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-08,
+        "grad_scale": 0.09694759220929908,
+        "lr": 0.001085182899921486,
+        "sizes": [
+          71
+        ],
+        "steps": 4,
+        "trial": 111,
+        "weight_decay": 0.1
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0024279159999878175
+    },
+    {
+      "active_coordinate_updates": 15868,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.99,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 1e-06,
+        "grad_scale": 0.0010699802772176198,
+        "lr": 1.6596260183507428e-05,
+        "sizes": [
+          3967
+        ],
+        "steps": 4,
+        "trial": 112,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.002407968000056826
+    },
+    {
+      "active_coordinate_updates": 40374,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.99,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.05712833799913741,
+        "lr": 0.0008092878339314039,
+        "sizes": [
+          948,
+          1821,
+          2893,
+          236,
+          989
+        ],
+        "steps": 6,
+        "trial": 113,
+        "weight_decay": 0.0001
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.01264330100002553
+    },
+    {
+      "active_coordinate_updates": 10866,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.9999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.004051468287691558,
+        "lr": 1.0402730693703082e-05,
+        "sizes": [
+          3622
+        ],
+        "steps": 3,
+        "trial": 114,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.0018824239999730707
+    },
+    {
+      "active_coordinate_updates": 4920,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.999,
+        "dtype": "bfloat16",
+        "dtype_index": 1,
+        "eps": 1e-06,
+        "grad_scale": 0.1369941815803706,
+        "lr": 1.224435945090128e-05,
+        "sizes": [
+          1640
+        ],
+        "steps": 4,
+        "trial": 115,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0026283509999984744
+    },
+    {
+      "active_coordinate_updates": 6091,
+      "config": {
+        "beta1": 0.95,
+        "beta2": 0.9999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-07,
+        "grad_scale": 0.002011129051948099,
+        "lr": 2.044886060169868e-05,
+        "sizes": [
+          714,
+          2236,
+          532,
+          312,
+          3543
+        ],
+        "steps": 1,
+        "trial": 116,
+        "weight_decay": 0.1
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.002096335000032923
+    },
+    {
+      "active_coordinate_updates": 7849,
+      "config": {
+        "beta1": 0.99,
+        "beta2": 0.999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.0510400010548317,
+        "lr": 0.0001732123484122792,
+        "sizes": [
+          1477,
+          1839,
+          3245,
+          1261,
+          1866
+        ],
+        "steps": 1,
+        "trial": 117,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.0035615269999880184
+    },
+    {
+      "active_coordinate_updates": 27661,
+      "config": {
+        "beta1": 0.9,
+        "beta2": 0.9,
+        "dtype": "float16",
+        "dtype_index": 2,
+        "eps": 0.0001,
+        "grad_scale": 0.0012174593587663408,
+        "lr": 5.877329860505636e-05,
+        "sizes": [
+          3426,
+          2973,
+          1017,
+          2606,
+          1587
+        ],
+        "steps": 3,
+        "trial": 118,
+        "weight_decay": 0.0
+      },
+      "method": "sign",
+      "status": "PASS",
+      "wall_seconds": 0.004699879000099827
+    },
+    {
+      "active_coordinate_updates": 10110,
+      "config": {
+        "beta1": 0.0,
+        "beta2": 0.999,
+        "dtype": "float32",
+        "dtype_index": 0,
+        "eps": 1e-06,
+        "grad_scale": 0.06652141766186642,
+        "lr": 5.9799950518001894e-05,
+        "sizes": [
+          715,
+          294,
+          1156
+        ],
+        "steps": 5,
+        "trial": 119,
+        "weight_decay": 0.01
+      },
+      "method": "low16",
+      "status": "PASS",
+      "wall_seconds": 0.006863640000005944
+    }
+  ],
+  "schema": "dfc-cpu-randomized-fuzz-v2-bitwise-oracle",
+  "seed": 20260822,
+  "sign_trials": 60,
+  "started_unix": 1787182518.8087873,
+  "status": "PASS",
+  "trials": 120
+}

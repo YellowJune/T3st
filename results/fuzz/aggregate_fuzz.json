@@ -1,0 +1,50 @@
+{
+  "active_coordinate_updates": 10697241,
+  "claim": "480 independently configured randomized CPU trials preserve the decoder-defined reference trajectory and payload exactly.",
+  "excluded": [
+    "GPU performance",
+    "accelerator counters",
+    "H100-class behavior"
+  ],
+  "github_run_id": "32313835818",
+  "low16_trials": 240,
+  "runs": [
+    {
+      "active_coordinate_updates": 2544252,
+      "configuration_digest_sha256": "94457e424f4729235032575aa325c49ff020d450e1f4f61a21eafa919adfe30f",
+      "file": "fuzz_20260820.json",
+      "seed": 20260820,
+      "sha256": "dbf5ed57f992c193d201688e66506b2ff87fd7a7b9ba328eefbce1b4329826e4",
+      "trials": 120
+    },
+    {
+      "active_coordinate_updates": 2608918,
+      "configuration_digest_sha256": "33990fa66a43b6b3b53e209e5e69efe5ba80105487dd6e5532d846e3c95619b0",
+      "file": "fuzz_20260821.json",
+      "seed": 20260821,
+      "sha256": "03c5440db7fb330c6f89e0eedc0846f342fe15ef6e7df630351d2338c4351358",
+      "trials": 120
+    },
+    {
+      "active_coordinate_updates": 2592477,
+      "configuration_digest_sha256": "e36d87ca6bde6c154cee71f9e376f394ebb305f3b1e08d9d08ae51986a2da280",
+      "file": "fuzz_20260822.json",
+      "seed": 20260822,
+      "sha256": "0fc15cf006e093535ed4349b063497e8adffd2c8b8f9e378e412701808b2506d",
+      "trials": 120
+    },
+    {
+      "active_coordinate_updates": 2951594,
+      "configuration_digest_sha256": "b2e1eec10e205004441dfa1c65009befc2ebc4c29c4f04be551cc141d4d7568f",
+      "file": "fuzz_20260823.json",
+      "seed": 20260823,
+      "sha256": "89880f747c1eb7678667583d3cdb2b916dcae3f9b74e222693db2f94e94fba0d",
+      "trials": 120
+    }
+  ],
+  "schema": "dfc-cpu-randomized-fuzz-aggregate-v1",
+  "sign_trials": 240,
+  "source_sha": "b73896816a762b3e8286ca7fc8ca2139045eeb3a",
+  "status": "PASS",
+  "total_trials": 480
+}
