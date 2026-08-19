@@ -81,6 +81,25 @@ def random_payload_write(channel, rng: np.random.Generator) -> tuple[int, bytes]
     return start, raw
 
 
+def track_latest_write(
+    tracked: list[tuple[int, bytes]], start: int, raw: bytes
+) -> list[tuple[int, bytes]]:
+    """Track only ranges whose asserted bytes have not been overwritten.
+
+    A later write invalidates an older assertion whenever their byte ranges
+    overlap, even partially.  This prevents the fuzz oracle itself from
+    reporting a false payload-mutation failure after a legitimate later write.
+    """
+    end = start + len(raw)
+    kept = [
+        (old_start, old_raw)
+        for old_start, old_raw in tracked
+        if old_start + len(old_raw) <= start or old_start >= end
+    ]
+    kept.append((start, raw))
+    return kept
+
+
 def checkpoint_roundtrip(kind: str, ref_params, dfc_params, ref_opt, dfc_opt):
     rb, db = io.BytesIO(), io.BytesIO()
     torch.save({"p": [p.detach() for p in ref_params], "o": ref_opt.state_dict()}, rb)
@@ -135,7 +154,7 @@ def run_case(case_id: int, base_seed: int, kind: str) -> dict:
     # Initial adversarial/random payload.  Unaligned offsets are selected naturally.
     for _ in range(py_rng.randint(1, 4)):
         start, raw = random_payload_write(channel, rng)
-        tracked.append((start, raw))
+        tracked = track_latest_write(tracked, start, raw)
         payload_digest_stream.update(start.to_bytes(8, "little"))
         payload_digest_stream.update(raw)
 
@@ -148,13 +167,7 @@ def run_case(case_id: int, base_seed: int, kind: str) -> dict:
         # Payload may change at any transition boundary.
         if step % py_rng.randint(2, 5) == 0:
             start, raw = random_payload_write(channel, rng)
-            tracked.append((start, raw))
-            # Keep only writes not overlapped by the newest range.
-            ns, ne = start, start + len(raw)
-            tracked = [
-                (s, b) for s, b in tracked
-                if (s == start and b == raw) or s + len(b) <= ns or s >= ne
-            ]
+            tracked = track_latest_write(tracked, start, raw)
             payload_digest_stream.update(start.to_bytes(8, "little"))
             payload_digest_stream.update(raw)
 
@@ -172,16 +185,23 @@ def run_case(case_id: int, base_seed: int, kind: str) -> dict:
             pd.grad = cast.clone()
             active += pr.numel()
 
-        ref_opt.step()
-        dfc_opt.step()
-        ref_opt.zero_grad(set_to_none=True)
-        dfc_opt.zero_grad(set_to_none=True)
-        checker(ref_opt, dfc_opt)
+        try:
+            ref_opt.step()
+            dfc_opt.step()
+            ref_opt.zero_grad(set_to_none=True)
+            dfc_opt.zero_grad(set_to_none=True)
+            checker(ref_opt, dfc_opt)
+        except Exception as exc:
+            raise AssertionError(
+                f"case={case_id} kind={kind} dtype={dtype} step={step}: semantic trajectory failure: {exc}"
+            ) from exc
         updates += active
 
         for start, raw in tracked:
             if channel.read_bytes(start, len(raw)) != raw:
-                raise AssertionError("payload mutated across optimizer transition")
+                raise AssertionError(
+                    f"case={case_id} kind={kind} dtype={dtype} step={step}: payload mutated across optimizer transition at byte range [{start},{start+len(raw)})"
+                )
 
         if step == checkpoint_at:
             # Save/restore physical optimizer state, then continue from restored objects.
@@ -193,7 +213,9 @@ def run_case(case_id: int, base_seed: int, kind: str) -> dict:
             checker(ref_opt, dfc_opt)
             for start, raw in snapshots:
                 if channel.read_bytes(start, len(raw)) != raw:
-                    raise AssertionError("payload lost across randomized checkpoint")
+                    raise AssertionError(
+                        f"case={case_id} kind={kind} dtype={dtype} checkpoint_step={step}: payload lost across randomized checkpoint at byte range [{start},{start+len(raw)})"
+                    )
             checkpointed = True
 
     return {
