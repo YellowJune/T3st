@@ -1,0 +1,2326 @@
+{
+  "base_seed": 910241,
+  "case_manifest_sha256": "ae51bfc56b7f1e7c796b13e0faa6f7d2e61d4d030030be4a48b7ca5a2eb951f4",
+  "cases": 128,
+  "environment": {
+    "cuda_available": false,
+    "numpy": "2.2.6",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "python": "3.11.16 (main, Aug 13 2026, 02:46:14) [GCC 13.3.0]",
+    "torch": "2.7.1+cpu"
+  },
+  "low16_cases": 64,
+  "randomized_dimensions": [
+    "tensor partition/count",
+    "FP32/BF16/FP16 parameter dtype",
+    "AdamW lr/betas/eps/weight decay",
+    "gradient magnitude and missing gradients",
+    "payload content/length/unaligned offset/rewrite schedule",
+    "checkpoint position"
+  ],
+  "rows": [
+    {
+      "case": 0,
+      "checkpoint_step": 2,
+      "checkpointed": true,
+      "coordinate_updates": 11500,
+      "dtype": "bfloat16",
+      "fiber_bytes": 152,
+      "kind": "sign",
+      "payload_write_digest": "a1bf9192befcc4549de55bdc9a7f9489c56010afd34d534a060a192ec80eaf4b",
+      "seed": 910241,
+      "status": "PASS",
+      "steps": 11,
+      "tensor_sizes": [
+        720,
+        137,
+        350,
+        15
+      ]
+    },
+    {
+      "case": 1,
+      "checkpoint_step": 5,
+      "checkpointed": true,
+      "coordinate_updates": 14193,
+      "dtype": "float16",
+      "fiber_bytes": 6308,
+      "kind": "low16",
+      "payload_write_digest": "195f27754a7af68e0d603089c030dbc42c9a5f61f66f8473d9fc177c4c134711",
+      "seed": 1420251,
+      "status": "PASS",
+      "steps": 10,
+      "tensor_sizes": [
+        723,
+        854
+      ]
+    },
+    {
+      "case": 2,
+      "checkpoint_step": 3,
+      "checkpointed": true,
+      "coordinate_updates": 18445,
+      "dtype": "float16",
+      "fiber_bytes": 264,
+      "kind": "sign",
+      "payload_write_digest": "e648efd48fd7fec24248d0d86ed8e3bec48141bb2324a8c2c3e3cb6cd51d3844",
+      "seed": 930255,
+      "status": "PASS",
+      "steps": 10,
+      "tensor_sizes": [
+        568,
+        499,
+        434,
+        617
+      ]
+    },
+    {
+      "case": 3,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 21757,
+      "dtype": "float16",
+      "fiber_bytes": 5676,
+      "kind": "low16",
+      "payload_write_digest": "ec3d892db93bb26ea7f192fb96f87e2067622ac118912ff4588aa933315f8f33",
+      "seed": 1440265,
+      "status": "PASS",
+      "steps": 18,
+      "tensor_sizes": [
+        472,
+        164,
+        263,
+        520
+      ]
+    },
+    {
+      "case": 4,
+      "checkpoint_step": 5,
+      "checkpointed": true,
+      "coordinate_updates": 6642,
+      "dtype": "float16",
+      "fiber_bytes": 92,
+      "kind": "sign",
+      "payload_write_digest": "0378e9f83f4ba3a5479dfb088bfd6d02d67f4adbb61f73f71725a0dfc378f4ca",
+      "seed": 950269,
+      "status": "PASS",
+      "steps": 10,
+      "tensor_sizes": [
+        738
+      ]
+    },
+    {
+      "case": 5,
+      "checkpoint_step": 6,
+      "checkpointed": true,
+      "coordinate_updates": 7912,
+      "dtype": "bfloat16",
+      "fiber_bytes": 3956,
+      "kind": "low16",
+      "payload_write_digest": "64036f28f42b0963497f9928abd9029113efb83832eb608f54917a89830e5965",
+      "seed": 1460279,
+      "status": "PASS",
+      "steps": 10,
+      "tensor_sizes": [
+        259,
+        730
+      ]
+    },
+    {
+      "case": 6,
+      "checkpoint_step": 11,
+      "checkpointed": true,
+      "coordinate_updates": 43326,
+      "dtype": "float32",
+      "fiber_bytes": 300,
+      "kind": "sign",
+      "payload_write_digest": "aa29742af313e715ae79bef2787fe4d8933b442143aa769dc2082341676cee93",
+      "seed": 970283,
+      "status": "PASS",
+      "steps": 21,
+      "tensor_sizes": [
+        334,
+        167,
+        907,
+        70,
+        929
+      ]
+    },
+    {
+      "case": 7,
+      "checkpoint_step": 6,
+      "checkpointed": true,
+      "coordinate_updates": 8680,
+      "dtype": "bfloat16",
+      "fiber_bytes": 2480,
+      "kind": "low16",
+      "payload_write_digest": "db3c5807783a88ac1539470c6fd44b47f3d28410d03075e16613a64ebf7616d5",
+      "seed": 1480293,
+      "status": "PASS",
+      "steps": 17,
+      "tensor_sizes": [
+        620
+      ]
+    },
+    {
+      "case": 8,
+      "checkpoint_step": 12,
+      "checkpointed": true,
+      "coordinate_updates": 17676,
+      "dtype": "float32",
+      "fiber_bytes": 122,
+      "kind": "sign",
+      "payload_write_digest": "0ec382dff40a29650b8ad2785f13e474921adff1f2f9b968a80362d31bcebc0a",
+      "seed": 990297,
+      "status": "PASS",
+      "steps": 21,
+      "tensor_sizes": [
+        982
+      ]
+    },
+    {
+      "case": 9,
+      "checkpoint_step": 11,
+      "checkpointed": true,
+      "coordinate_updates": 16137,
+      "dtype": "bfloat16",
+      "fiber_bytes": 5868,
+      "kind": "low16",
+      "payload_write_digest": "14be97bfd1847bd50d68a6a8924e5aaf3f2738a6fbdecea4219cbf3342b6ded0",
+      "seed": 1500307,
+      "status": "PASS",
+      "steps": 13,
+      "tensor_sizes": [
+        590,
+        877
+      ]
+    },
+    {
+      "case": 10,
+      "checkpoint_step": 13,
+      "checkpointed": true,
+      "coordinate_updates": 35982,
+      "dtype": "float16",
+      "fiber_bytes": 249,
+      "kind": "sign",
+      "payload_write_digest": "aa412a80c5c6cea7dc38d602b1415a1b3e2e5a250c3594d2a8790276ecad5076",
+      "seed": 1010311,
+      "status": "PASS",
+      "steps": 21,
+      "tensor_sizes": [
+        270,
+        834,
+        519,
+        376
+      ]
+    },
+    {
+      "case": 11,
+      "checkpoint_step": 13,
+      "checkpointed": true,
+      "coordinate_updates": 29446,
+      "dtype": "float16",
+      "fiber_bytes": 8664,
+      "kind": "low16",
+      "payload_write_digest": "30f2f5161e136c23cdcbd4de07f487047f35fbb1a97b94d18c21b74a5bc6012e",
+      "seed": 1520321,
+      "status": "PASS",
+      "steps": 16,
+      "tensor_sizes": [
+        708,
+        580,
+        878
+      ]
+    },
+    {
+      "case": 12,
+      "checkpoint_step": 2,
+      "checkpointed": true,
+      "coordinate_updates": 6510,
+      "dtype": "bfloat16",
+      "fiber_bytes": 38,
+      "kind": "sign",
+      "payload_write_digest": "fa0de597018a02655f4cdfc6377346b4c17ddc6879ef5fa0eb669c836a7faac1",
+      "seed": 1030325,
+      "status": "PASS",
+      "steps": 25,
+      "tensor_sizes": [
+        310
+      ]
+    },
+    {
+      "case": 13,
+      "checkpoint_step": 23,
+      "checkpointed": true,
+      "coordinate_updates": 12056,
+      "dtype": "float16",
+      "fiber_bytes": 2192,
+      "kind": "low16",
+      "payload_write_digest": "cb190512069084ff4a07936aac4255c9a7a3ef9c949db8834f81a6723cc23ffb",
+      "seed": 1540335,
+      "status": "PASS",
+      "steps": 26,
+      "tensor_sizes": [
+        369,
+        179
+      ]
+    },
+    {
+      "case": 14,
+      "checkpoint_step": 4,
+      "checkpointed": true,
+      "coordinate_updates": 8676,
+      "dtype": "bfloat16",
+      "fiber_bytes": 90,
+      "kind": "sign",
+      "payload_write_digest": "42902b962ff558197e83ebde5b15d2e6106ff6a398a54a645ee0086fb37bfc21",
+      "seed": 1050339,
+      "status": "PASS",
+      "steps": 15,
+      "tensor_sizes": [
+        723
+      ]
+    },
+    {
+      "case": 15,
+      "checkpoint_step": 3,
+      "checkpointed": true,
+      "coordinate_updates": 7539,
+      "dtype": "float32",
+      "fiber_bytes": 4308,
+      "kind": "low16",
+      "payload_write_digest": "3232bb5aaa213e0742b866868510fd10771a14129ceb122f05f74d5f23bb082c",
+      "seed": 1560349,
+      "status": "PASS",
+      "steps": 8,
+      "tensor_sizes": [
+        79,
+        998
+      ]
+    },
+    {
+      "case": 16,
+      "checkpoint_step": 14,
+      "checkpointed": true,
+      "coordinate_updates": 26055,
+      "dtype": "bfloat16",
+      "fiber_bytes": 217,
+      "kind": "sign",
+      "payload_write_digest": "5a452ff7449a8db99342ce8d9b2b41271c187b9f4dc40313bbac27c7e5c6c81c",
+      "seed": 1070353,
+      "status": "PASS",
+      "steps": 17,
+      "tensor_sizes": [
+        935,
+        802
+      ]
+    },
+    {
+      "case": 17,
+      "checkpoint_step": 6,
+      "checkpointed": true,
+      "coordinate_updates": 1600,
+      "dtype": "float16",
+      "fiber_bytes": 320,
+      "kind": "low16",
+      "payload_write_digest": "24f330f05e170cb1273ecb53577701abee9dc404666d536932e97f18c95927c4",
+      "seed": 1580363,
+      "status": "PASS",
+      "steps": 23,
+      "tensor_sizes": [
+        80
+      ]
+    },
+    {
+      "case": 18,
+      "checkpoint_step": 2,
+      "checkpointed": true,
+      "coordinate_updates": 10416,
+      "dtype": "float16",
+      "fiber_bytes": 81,
+      "kind": "sign",
+      "payload_write_digest": "032b81255aaf6dfe8a8834dfcaed4023270068e97cac631019ff15fe0a2323d2",
+      "seed": 1090367,
+      "status": "PASS",
+      "steps": 19,
+      "tensor_sizes": [
+        651
+      ]
+    },
+    {
+      "case": 19,
+      "checkpoint_step": 14,
+      "checkpointed": true,
+      "coordinate_updates": 31681,
+      "dtype": "float32",
+      "fiber_bytes": 7704,
+      "kind": "low16",
+      "payload_write_digest": "84d6f41d02da1d8aea253775cdb7be7e5f8e5db3d89c8271e81c363f4236538b",
+      "seed": 1600377,
+      "status": "PASS",
+      "steps": 19,
+      "tensor_sizes": [
+        85,
+        139,
+        837,
+        404,
+        461
+      ]
+    },
+    {
+      "case": 20,
+      "checkpoint_step": 4,
+      "checkpointed": true,
+      "coordinate_updates": 9590,
+      "dtype": "bfloat16",
+      "fiber_bytes": 85,
+      "kind": "sign",
+      "payload_write_digest": "c03f6f8f1a81805a1cc491cd9f6e5df7d2b3cf4cd7efe0510ded4aae8d736e61",
+      "seed": 1110381,
+      "status": "PASS",
+      "steps": 17,
+      "tensor_sizes": [
+        685
+      ]
+    },
+    {
+      "case": 21,
+      "checkpoint_step": 16,
+      "checkpointed": true,
+      "coordinate_updates": 39674,
+      "dtype": "bfloat16",
+      "fiber_bytes": 9516,
+      "kind": "low16",
+      "payload_write_digest": "6995b5712ef74620a17f51a646201b5fb5367d8eeb5863ec57ec2af4152b3ace",
+      "seed": 1620391,
+      "status": "PASS",
+      "steps": 19,
+      "tensor_sizes": [
+        769,
+        669,
+        941
+      ]
+    },
+    {
+      "case": 22,
+      "checkpoint_step": 10,
+      "checkpointed": true,
+      "coordinate_updates": 12254,
+      "dtype": "float16",
+      "fiber_bytes": 139,
+      "kind": "sign",
+      "payload_write_digest": "a982a85ef1ffb6c29bcb5df196d6ae4d62c6081d02de945ffa328cb7d04902df",
+      "seed": 1130395,
+      "status": "PASS",
+      "steps": 12,
+      "tensor_sizes": [
+        989,
+        125
+      ]
+    },
+    {
+      "case": 23,
+      "checkpoint_step": 14,
+      "checkpointed": true,
+      "coordinate_updates": 19912,
+      "dtype": "bfloat16",
+      "fiber_bytes": 4192,
+      "kind": "low16",
+      "payload_write_digest": "fc2bd13885803691bd3211e1e09fe0e02faec996367a5a84226189de3da895d3",
+      "seed": 1640405,
+      "status": "PASS",
+      "steps": 22,
+      "tensor_sizes": [
+        295,
+        204,
+        549
+      ]
+    },
+    {
+      "case": 24,
+      "checkpoint_step": 10,
+      "checkpointed": true,
+      "coordinate_updates": 30740,
+      "dtype": "float16",
+      "fiber_bytes": 384,
+      "kind": "sign",
+      "payload_write_digest": "f08108ebbac7ad7e816eaf789596ec0dbba5a57ff1380153149e4cdb6ca346ae",
+      "seed": 1150409,
+      "status": "PASS",
+      "steps": 12,
+      "tensor_sizes": [
+        664,
+        555,
+        790,
+        61,
+        1004
+      ]
+    },
+    {
+      "case": 25,
+      "checkpoint_step": 11,
+      "checkpointed": true,
+      "coordinate_updates": 51432,
+      "dtype": "float32",
+      "fiber_bytes": 9260,
+      "kind": "low16",
+      "payload_write_digest": "67b8f1712777b1aec02e1ec418e80c29900c6769f1aa73fa08884145e9b1f4eb",
+      "seed": 1660419,
+      "status": "PASS",
+      "steps": 26,
+      "tensor_sizes": [
+        507,
+        1000,
+        93,
+        213,
+        502
+      ]
+    },
+    {
+      "case": 26,
+      "checkpoint_step": 11,
+      "checkpointed": true,
+      "coordinate_updates": 62112,
+      "dtype": "float16",
+      "fiber_bytes": 323,
+      "kind": "sign",
+      "payload_write_digest": "2ede38284d7a21d1d1c83bc41d8242e24a98e4d41ffd60fed27928d7b51865af",
+      "seed": 1170423,
+      "status": "PASS",
+      "steps": 28,
+      "tensor_sizes": [
+        824,
+        271,
+        1006,
+        487
+      ]
+    },
+    {
+      "case": 27,
+      "checkpoint_step": 8,
+      "checkpointed": true,
+      "coordinate_updates": 22606,
+      "dtype": "float32",
+      "fiber_bytes": 8812,
+      "kind": "low16",
+      "payload_write_digest": "f463f122665ced656750a5edfbdf67cb6d3387ef45b39a95fbdd5e4fc69ee20d",
+      "seed": 1680433,
+      "status": "PASS",
+      "steps": 12,
+      "tensor_sizes": [
+        668,
+        959,
+        403,
+        173
+      ]
+    },
+    {
+      "case": 28,
+      "checkpoint_step": 12,
+      "checkpointed": true,
+      "coordinate_updates": 30394,
+      "dtype": "float32",
+      "fiber_bytes": 278,
+      "kind": "sign",
+      "payload_write_digest": "7c1c8c961a97081558089e3230e2ff781f49a7098f85f7fcb873731f1dcfcb55",
+      "seed": 1190437,
+      "status": "PASS",
+      "steps": 16,
+      "tensor_sizes": [
+        840,
+        989,
+        402
+      ]
+    },
+    {
+      "case": 29,
+      "checkpoint_step": 18,
+      "checkpointed": true,
+      "coordinate_updates": 19548,
+      "dtype": "bfloat16",
+      "fiber_bytes": 4344,
+      "kind": "low16",
+      "payload_write_digest": "31701623909cfc54bb4095772f1f2e0216e3f55adbd450e01da228108e5cf863",
+      "seed": 1700447,
+      "status": "PASS",
+      "steps": 21,
+      "tensor_sizes": [
+        483,
+        198,
+        351,
+        54
+      ]
+    },
+    {
+      "case": 30,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 27898,
+      "dtype": "float16",
+      "fiber_bytes": 268,
+      "kind": "sign",
+      "payload_write_digest": "cf9918a1b015f17cd7cfb9cf947e4a1905508f09e51979f41d4fd369159e87fc",
+      "seed": 1210451,
+      "status": "PASS",
+      "steps": 15,
+      "tensor_sizes": [
+        975,
+        226,
+        658,
+        40,
+        247
+      ]
+    },
+    {
+      "case": 31,
+      "checkpoint_step": 5,
+      "checkpointed": true,
+      "coordinate_updates": 13610,
+      "dtype": "float32",
+      "fiber_bytes": 6036,
+      "kind": "low16",
+      "payload_write_digest": "adc9b1a50b15594787cd0ff4a225fbea847bab673d629970e76030d1b6d77b1f",
+      "seed": 1720461,
+      "status": "PASS",
+      "steps": 11,
+      "tensor_sizes": [
+        29,
+        575,
+        905
+      ]
+    },
+    {
+      "case": 32,
+      "checkpoint_step": 3,
+      "checkpointed": true,
+      "coordinate_updates": 31842,
+      "dtype": "bfloat16",
+      "fiber_bytes": 221,
+      "kind": "sign",
+      "payload_write_digest": "31df0e68c5f8614ddfa61278280a4ce9d6491609ce13ea993556785349aeda04",
+      "seed": 1230465,
+      "status": "PASS",
+      "steps": 21,
+      "tensor_sizes": [
+        843,
+        926
+      ]
+    },
+    {
+      "case": 33,
+      "checkpoint_step": 21,
+      "checkpointed": true,
+      "coordinate_updates": 25553,
+      "dtype": "float16",
+      "fiber_bytes": 4444,
+      "kind": "low16",
+      "payload_write_digest": "67555dc876ea01711ef6a276a18d9ca98ac31c5a3c8e0630f26704e3a6d9a3aa",
+      "seed": 1740475,
+      "status": "PASS",
+      "steps": 27,
+      "tensor_sizes": [
+        954,
+        157
+      ]
+    },
+    {
+      "case": 34,
+      "checkpoint_step": 9,
+      "checkpointed": true,
+      "coordinate_updates": 16400,
+      "dtype": "float16",
+      "fiber_bytes": 128,
+      "kind": "sign",
+      "payload_write_digest": "acd9c0adcc2049b3a412701835040d44930f5ef8a200153e7c02eb7ea163e8f0",
+      "seed": 1250479,
+      "status": "PASS",
+      "steps": 19,
+      "tensor_sizes": [
+        26,
+        999
+      ]
+    },
+    {
+      "case": 35,
+      "checkpoint_step": 6,
+      "checkpointed": true,
+      "coordinate_updates": 18546,
+      "dtype": "float16",
+      "fiber_bytes": 5916,
+      "kind": "low16",
+      "payload_write_digest": "797359cd1f162f1c5f51273b935c39fbe09ac8ab5d0d1ba03106d8dfbad460f1",
+      "seed": 1760489,
+      "status": "PASS",
+      "steps": 15,
+      "tensor_sizes": [
+        681,
+        798
+      ]
+    },
+    {
+      "case": 36,
+      "checkpoint_step": 13,
+      "checkpointed": true,
+      "coordinate_updates": 644,
+      "dtype": "float16",
+      "fiber_bytes": 5,
+      "kind": "sign",
+      "payload_write_digest": "15d271d79d87a308c21594e77623dc4897903dc72b0a6489cb491012af7f7018",
+      "seed": 1270493,
+      "status": "PASS",
+      "steps": 16,
+      "tensor_sizes": [
+        19,
+        27
+      ]
+    },
+    {
+      "case": 37,
+      "checkpoint_step": 24,
+      "checkpointed": true,
+      "coordinate_updates": 6072,
+      "dtype": "float16",
+      "fiber_bytes": 1012,
+      "kind": "low16",
+      "payload_write_digest": "2ce81e5e2471e47ba7acccac05ea6327065ad6716f9d3dd69aabcaee7fd6c137",
+      "seed": 1780503,
+      "status": "PASS",
+      "steps": 28,
+      "tensor_sizes": [
+        253
+      ]
+    },
+    {
+      "case": 38,
+      "checkpoint_step": 2,
+      "checkpointed": true,
+      "coordinate_updates": 9933,
+      "dtype": "float32",
+      "fiber_bytes": 177,
+      "kind": "sign",
+      "payload_write_digest": "f4c4384d4903208871a92169bd1b6d769614bb3b08f00736233ff9b073f4eac5",
+      "seed": 1290507,
+      "status": "PASS",
+      "steps": 8,
+      "tensor_sizes": [
+        577,
+        842
+      ]
+    },
+    {
+      "case": 39,
+      "checkpoint_step": 2,
+      "checkpointed": true,
+      "coordinate_updates": 959,
+      "dtype": "float16",
+      "fiber_bytes": 548,
+      "kind": "low16",
+      "payload_write_digest": "28b7805acd087a9893de911a118602099daac16f0c084c6af0e24ef56c7b7dfe",
+      "seed": 1800517,
+      "status": "PASS",
+      "steps": 8,
+      "tensor_sizes": [
+        137
+      ]
+    },
+    {
+      "case": 40,
+      "checkpoint_step": 6,
+      "checkpointed": true,
+      "coordinate_updates": 17928,
+      "dtype": "bfloat16",
+      "fiber_bytes": 249,
+      "kind": "sign",
+      "payload_write_digest": "72d8e3c351707a39312077181557de519af71e036e31b56008a2147524e26844",
+      "seed": 1310521,
+      "status": "PASS",
+      "steps": 11,
+      "tensor_sizes": [
+        657,
+        439,
+        896
+      ]
+    },
+    {
+      "case": 41,
+      "checkpoint_step": 10,
+      "checkpointed": true,
+      "coordinate_updates": 18114,
+      "dtype": "float32",
+      "fiber_bytes": 5528,
+      "kind": "low16",
+      "payload_write_digest": "b888e7cbee061638e11a130a4b113b482b4839b664f23c5bc58f75705ed993c6",
+      "seed": 1820531,
+      "status": "PASS",
+      "steps": 16,
+      "tensor_sizes": [
+        808,
+        426,
+        148
+      ]
+    },
+    {
+      "case": 42,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 23854,
+      "dtype": "float16",
+      "fiber_bytes": 281,
+      "kind": "sign",
+      "payload_write_digest": "78f2a2c49db8047c71813a7f701fefb0242ce576cea84b861207e54cf25ed364",
+      "seed": 1330535,
+      "status": "PASS",
+      "steps": 12,
+      "tensor_sizes": [
+        440,
+        801,
+        543,
+        467
+      ]
+    },
+    {
+      "case": 43,
+      "checkpoint_step": 2,
+      "checkpointed": true,
+      "coordinate_updates": 27949,
+      "dtype": "float32",
+      "fiber_bytes": 12584,
+      "kind": "low16",
+      "payload_write_digest": "7d03c6c23a30ca0ef586d81aa544a496e808072b8655ced43373ba1c1495075e",
+      "seed": 1840545,
+      "status": "PASS",
+      "steps": 10,
+      "tensor_sizes": [
+        695,
+        969,
+        162,
+        955,
+        365
+      ]
+    },
+    {
+      "case": 44,
+      "checkpoint_step": 11,
+      "checkpointed": true,
+      "coordinate_updates": 1456,
+      "dtype": "float32",
+      "fiber_bytes": 13,
+      "kind": "sign",
+      "payload_write_digest": "03617c9559a4bfb0ca1bd767f4213a433df223f28d118ac5af174b3fa7f59ca1",
+      "seed": 1350549,
+      "status": "PASS",
+      "steps": 16,
+      "tensor_sizes": [
+        104
+      ]
+    },
+    {
+      "case": 45,
+      "checkpoint_step": 23,
+      "checkpointed": true,
+      "coordinate_updates": 57310,
+      "dtype": "bfloat16",
+      "fiber_bytes": 10420,
+      "kind": "low16",
+      "payload_write_digest": "c521434b6ab226eb2a66c53f139506415ad6ecb331c4508c7a1834276e934845",
+      "seed": 1860559,
+      "status": "PASS",
+      "steps": 26,
+      "tensor_sizes": [
+        879,
+        493,
+        529,
+        576,
+        128
+      ]
+    },
+    {
+      "case": 46,
+      "checkpoint_step": 12,
+      "checkpointed": true,
+      "coordinate_updates": 33222,
+      "dtype": "float32",
+      "fiber_bytes": 197,
+      "kind": "sign",
+      "payload_write_digest": "9d211a83d68b170b4efc2537c24b78550620c15cee1ce7f24de6a38d88a9b6cb",
+      "seed": 1370563,
+      "status": "PASS",
+      "steps": 25,
+      "tensor_sizes": [
+        562,
+        734,
+        140,
+        146
+      ]
+    },
+    {
+      "case": 47,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 46769,
+      "dtype": "float16",
+      "fiber_bytes": 8072,
+      "kind": "low16",
+      "payload_write_digest": "c02ff7dc9a631362f59d6e3057cbf7173ad31157976e094adfd5d7a994a1e82a",
+      "seed": 1880573,
+      "status": "PASS",
+      "steps": 27,
+      "tensor_sizes": [
+        504,
+        308,
+        183,
+        355,
+        668
+      ]
+    },
+    {
+      "case": 48,
+      "checkpoint_step": 16,
+      "checkpointed": true,
+      "coordinate_updates": 72545,
+      "dtype": "float16",
+      "fiber_bytes": 526,
+      "kind": "sign",
+      "payload_write_digest": "7e8b8665e690fd57eb3e7094562993b50abc600c9f0a0a86cb958fa1f346d022",
+      "seed": 1390577,
+      "status": "PASS",
+      "steps": 20,
+      "tensor_sizes": [
+        775,
+        937,
+        890,
+        876,
+        737
+      ]
+    },
+    {
+      "case": 49,
+      "checkpoint_step": 17,
+      "checkpointed": true,
+      "coordinate_updates": 11937,
+      "dtype": "float16",
+      "fiber_bytes": 2172,
+      "kind": "low16",
+      "payload_write_digest": "88d7d124f30cb586cc94e279746a6af0e15862d88aadb397b116584f589b21d9",
+      "seed": 1900587,
+      "status": "PASS",
+      "steps": 25,
+      "tensor_sizes": [
+        9,
+        121,
+        413
+      ]
+    },
+    {
+      "case": 50,
+      "checkpoint_step": 6,
+      "checkpointed": true,
+      "coordinate_updates": 6622,
+      "dtype": "float16",
+      "fiber_bytes": 37,
+      "kind": "sign",
+      "payload_write_digest": "8e78aec9f594a4cf08ec0d3de3c29f20af47acd54b3cab3bc7ccef42e192bb45",
+      "seed": 1410591,
+      "status": "PASS",
+      "steps": 25,
+      "tensor_sizes": [
+        104,
+        197
+      ]
+    },
+    {
+      "case": 51,
+      "checkpoint_step": 4,
+      "checkpointed": true,
+      "coordinate_updates": 20006,
+      "dtype": "float16",
+      "fiber_bytes": 5716,
+      "kind": "low16",
+      "payload_write_digest": "f9f44b167600e28553e0700d369857325d2138ce135799b1b9ff6f9b8ed26b0c",
+      "seed": 1920601,
+      "status": "PASS",
+      "steps": 16,
+      "tensor_sizes": [
+        512,
+        917
+      ]
+    },
+    {
+      "case": 52,
+      "checkpoint_step": 20,
+      "checkpointed": true,
+      "coordinate_updates": 24840,
+      "dtype": "float16",
+      "fiber_bytes": 158,
+      "kind": "sign",
+      "payload_write_digest": "14bd0cfc4d686b5acc1a856dbfeabdf71aab9265da9ae1d01359c994be55596c",
+      "seed": 1430605,
+      "status": "PASS",
+      "steps": 23,
+      "tensor_sizes": [
+        473,
+        179,
+        39,
+        580
+      ]
+    },
+    {
+      "case": 53,
+      "checkpoint_step": 8,
+      "checkpointed": true,
+      "coordinate_updates": 29986,
+      "dtype": "float16",
+      "fiber_bytes": 10904,
+      "kind": "low16",
+      "payload_write_digest": "ad1a7aa739f23584ebedad6e87f58012dbc175bce38c266feb4cc7821c3a3dd4",
+      "seed": 1940615,
+      "status": "PASS",
+      "steps": 13,
+      "tensor_sizes": [
+        542,
+        517,
+        968,
+        699
+      ]
+    },
+    {
+      "case": 54,
+      "checkpoint_step": 3,
+      "checkpointed": true,
+      "coordinate_updates": 9432,
+      "dtype": "bfloat16",
+      "fiber_bytes": 98,
+      "kind": "sign",
+      "payload_write_digest": "e8782a25b6d066d965aec41d7c9a35d9c2d9b9a22cfd550478cf780110235761",
+      "seed": 1450619,
+      "status": "PASS",
+      "steps": 14,
+      "tensor_sizes": [
+        786
+      ]
+    },
+    {
+      "case": 55,
+      "checkpoint_step": 8,
+      "checkpointed": true,
+      "coordinate_updates": 23358,
+      "dtype": "float16",
+      "fiber_bytes": 9688,
+      "kind": "low16",
+      "payload_write_digest": "d7fe4ea69129d63d870ee9c97b8d9ad18df292984bd72c4877816938092854c3",
+      "seed": 1960629,
+      "status": "PASS",
+      "steps": 11,
+      "tensor_sizes": [
+        59,
+        803,
+        904,
+        656
+      ]
+    },
+    {
+      "case": 56,
+      "checkpoint_step": 13,
+      "checkpointed": true,
+      "coordinate_updates": 45756,
+      "dtype": "float32",
+      "fiber_bytes": 317,
+      "kind": "sign",
+      "payload_write_digest": "9af28aebf5bb34566970904558c6be2256c34218bc3fa05e283fb5fb18cb9ae9",
+      "seed": 1470633,
+      "status": "PASS",
+      "steps": 21,
+      "tensor_sizes": [
+        431,
+        899,
+        825,
+        387
+      ]
+    },
+    {
+      "case": 57,
+      "checkpoint_step": 19,
+      "checkpointed": true,
+      "coordinate_updates": 26670,
+      "dtype": "float16",
+      "fiber_bytes": 5080,
+      "kind": "low16",
+      "payload_write_digest": "016171b45e10941ec41e066f7742b321ae415b7c376228440bd1ed76f42aee5e",
+      "seed": 1980643,
+      "status": "PASS",
+      "steps": 24,
+      "tensor_sizes": [
+        362,
+        588,
+        320
+      ]
+    },
+    {
+      "case": 58,
+      "checkpoint_step": 2,
+      "checkpointed": true,
+      "coordinate_updates": 5037,
+      "dtype": "bfloat16",
+      "fiber_bytes": 27,
+      "kind": "sign",
+      "payload_write_digest": "c98b9c14d8cb9dd31fdc86afdbc7eebac2be7b7b9dc436095aad776df0a6f37c",
+      "seed": 1490647,
+      "status": "PASS",
+      "steps": 26,
+      "tensor_sizes": [
+        219
+      ]
+    },
+    {
+      "case": 59,
+      "checkpoint_step": 8,
+      "checkpointed": true,
+      "coordinate_updates": 57063,
+      "dtype": "float16",
+      "fiber_bytes": 9924,
+      "kind": "low16",
+      "payload_write_digest": "3c436b6f49cb9c4905e6a7b4ace98e4fd29bf4ab95a7ad72a77d71f1e381bc0c",
+      "seed": 2000657,
+      "status": "PASS",
+      "steps": 27,
+      "tensor_sizes": [
+        884,
+        680,
+        287,
+        469,
+        161
+      ]
+    },
+    {
+      "case": 60,
+      "checkpoint_step": 13,
+      "checkpointed": true,
+      "coordinate_updates": 62681,
+      "dtype": "float32",
+      "fiber_bytes": 454,
+      "kind": "sign",
+      "payload_write_digest": "5768e23c12410b893ab42fae09de16962dec78f9a7c7c43ee8e6addf2e370a34",
+      "seed": 1510661,
+      "status": "PASS",
+      "steps": 20,
+      "tensor_sizes": [
+        713,
+        835,
+        334,
+        813,
+        937
+      ]
+    },
+    {
+      "case": 61,
+      "checkpoint_step": 2,
+      "checkpointed": true,
+      "coordinate_updates": 26676,
+      "dtype": "bfloat16",
+      "fiber_bytes": 5928,
+      "kind": "low16",
+      "payload_write_digest": "f32b85cabca1fd8c6c99bf079c264e43ee272d95bea3f0ead00575fa8e50e8f9",
+      "seed": 2020671,
+      "status": "PASS",
+      "steps": 21,
+      "tensor_sizes": [
+        761,
+        721
+      ]
+    },
+    {
+      "case": 62,
+      "checkpoint_step": 9,
+      "checkpointed": true,
+      "coordinate_updates": 20136,
+      "dtype": "float16",
+      "fiber_bytes": 155,
+      "kind": "sign",
+      "payload_write_digest": "283e8aa37b2c00b67a7ace0a7acf279ad64a2e7e9a90c3b7761ace90c6130dda",
+      "seed": 1530675,
+      "status": "PASS",
+      "steps": 19,
+      "tensor_sizes": [
+        101,
+        57,
+        173,
+        91,
+        820
+      ]
+    },
+    {
+      "case": 63,
+      "checkpoint_step": 6,
+      "checkpointed": true,
+      "coordinate_updates": 48943,
+      "dtype": "float16",
+      "fiber_bytes": 12492,
+      "kind": "low16",
+      "payload_write_digest": "9c0724de293a85a6991f64e3daa04c72e6bf603d6f33211dd631eedada219cb5",
+      "seed": 2040685,
+      "status": "PASS",
+      "steps": 18,
+      "tensor_sizes": [
+        639,
+        596,
+        926,
+        576,
+        386
+      ]
+    },
+    {
+      "case": 64,
+      "checkpoint_step": 4,
+      "checkpointed": true,
+      "coordinate_updates": 37360,
+      "dtype": "float16",
+      "fiber_bytes": 233,
+      "kind": "sign",
+      "payload_write_digest": "d77d3d803f22a1890e6fa85fbb3f038cb79184b747d5e9069e4b9fac80dcaca9",
+      "seed": 1550689,
+      "status": "PASS",
+      "steps": 23,
+      "tensor_sizes": [
+        747,
+        49,
+        902,
+        170
+      ]
+    },
+    {
+      "case": 65,
+      "checkpoint_step": 14,
+      "checkpointed": true,
+      "coordinate_updates": 24888,
+      "dtype": "float32",
+      "fiber_bytes": 4148,
+      "kind": "low16",
+      "payload_write_digest": "9f77fd6aa50cd5e050946cd0f895fbcfdf868cdf796451b0c933dab5367568ea",
+      "seed": 2060699,
+      "status": "PASS",
+      "steps": 28,
+      "tensor_sizes": [
+        899,
+        138
+      ]
+    },
+    {
+      "case": 66,
+      "checkpoint_step": 6,
+      "checkpointed": true,
+      "coordinate_updates": 55734,
+      "dtype": "float32",
+      "fiber_bytes": 458,
+      "kind": "sign",
+      "payload_write_digest": "2e7b0411851fd9eca062d0a3fdc945de91c8720e97a6250b1f230ae4fc6c45bd",
+      "seed": 1570703,
+      "status": "PASS",
+      "steps": 18,
+      "tensor_sizes": [
+        759,
+        428,
+        1013,
+        618,
+        847
+      ]
+    },
+    {
+      "case": 67,
+      "checkpoint_step": 13,
+      "checkpointed": true,
+      "coordinate_updates": 13416,
+      "dtype": "float16",
+      "fiber_bytes": 2236,
+      "kind": "low16",
+      "payload_write_digest": "09f9b2e225fec05c61add815d433f8b728c39b8b8a9273590ff89d826dead7dd",
+      "seed": 2080713,
+      "status": "PASS",
+      "steps": 28,
+      "tensor_sizes": [
+        157,
+        402
+      ]
+    },
+    {
+      "case": 68,
+      "checkpoint_step": 9,
+      "checkpointed": true,
+      "coordinate_updates": 49534,
+      "dtype": "float32",
+      "fiber_bytes": 277,
+      "kind": "sign",
+      "payload_write_digest": "7da1d113be61ae2ee8bc39d1affd24f0cec334757bdb5dce249770a6453103a7",
+      "seed": 1590717,
+      "status": "PASS",
+      "steps": 26,
+      "tensor_sizes": [
+        691,
+        802,
+        56,
+        672
+      ]
+    },
+    {
+      "case": 69,
+      "checkpoint_step": 13,
+      "checkpointed": true,
+      "coordinate_updates": 13008,
+      "dtype": "float16",
+      "fiber_bytes": 3252,
+      "kind": "low16",
+      "payload_write_digest": "0164cddfc4b2301eac6c532926434722095e6419033cbbd818270a4759f70713",
+      "seed": 2100727,
+      "status": "PASS",
+      "steps": 19,
+      "tensor_sizes": [
+        443,
+        370
+      ]
+    },
+    {
+      "case": 70,
+      "checkpoint_step": 5,
+      "checkpointed": true,
+      "coordinate_updates": 24708,
+      "dtype": "bfloat16",
+      "fiber_bytes": 184,
+      "kind": "sign",
+      "payload_write_digest": "a8a5bfc4136c6bbf21800d39467e5d072257043f3982c53c0ea33453adf352ec",
+      "seed": 1610731,
+      "status": "PASS",
+      "steps": 19,
+      "tensor_sizes": [
+        350,
+        775,
+        349
+      ]
+    },
+    {
+      "case": 71,
+      "checkpoint_step": 9,
+      "checkpointed": true,
+      "coordinate_updates": 28728,
+      "dtype": "bfloat16",
+      "fiber_bytes": 9576,
+      "kind": "low16",
+      "payload_write_digest": "5201ca719d876a6c98711de65a573760c51453d0a7259a5d1f92de30f354de71",
+      "seed": 2120741,
+      "status": "PASS",
+      "steps": 14,
+      "tensor_sizes": [
+        773,
+        117,
+        573,
+        395,
+        536
+      ]
+    },
+    {
+      "case": 72,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 11561,
+      "dtype": "float16",
+      "fiber_bytes": 131,
+      "kind": "sign",
+      "payload_write_digest": "71c6a758bfe75d23aaddde8ba5fba95317e56e0b06247652543666daed33a53b",
+      "seed": 1630745,
+      "status": "PASS",
+      "steps": 13,
+      "tensor_sizes": [
+        407,
+        174,
+        355,
+        76,
+        39
+      ]
+    },
+    {
+      "case": 73,
+      "checkpoint_step": 2,
+      "checkpointed": true,
+      "coordinate_updates": 15000,
+      "dtype": "float32",
+      "fiber_bytes": 5000,
+      "kind": "low16",
+      "payload_write_digest": "32ee721f0f345ceb6e02748f244f238ece37163b9540f8a09b59b4d9e8d31330",
+      "seed": 2140755,
+      "status": "PASS",
+      "steps": 14,
+      "tensor_sizes": [
+        118,
+        754,
+        312,
+        22,
+        44
+      ]
+    },
+    {
+      "case": 74,
+      "checkpoint_step": 3,
+      "checkpointed": true,
+      "coordinate_updates": 41955,
+      "dtype": "float16",
+      "fiber_bytes": 259,
+      "kind": "sign",
+      "payload_write_digest": "13305f08e26a7b601671edb6898f5c36e78e6e455f36dccaa97d4c7bced03904",
+      "seed": 1650759,
+      "status": "PASS",
+      "steps": 24,
+      "tensor_sizes": [
+        435,
+        558,
+        181,
+        902
+      ]
+    },
+    {
+      "case": 75,
+      "checkpoint_step": 17,
+      "checkpointed": true,
+      "coordinate_updates": 15500,
+      "dtype": "float16",
+      "fiber_bytes": 3100,
+      "kind": "low16",
+      "payload_write_digest": "f48950e59b0aed09d38258fe9908e5bb2c6971d30b57609cb12efbcaa92e8efa",
+      "seed": 2160769,
+      "status": "PASS",
+      "steps": 24,
+      "tensor_sizes": [
+        390,
+        385
+      ]
+    },
+    {
+      "case": 76,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 22446,
+      "dtype": "float16",
+      "fiber_bytes": 163,
+      "kind": "sign",
+      "payload_write_digest": "549a74f85f616cdf9e287ccddf322c95cc98b630d85d8e4db46b2bf3ff263fb9",
+      "seed": 1670773,
+      "status": "PASS",
+      "steps": 20,
+      "tensor_sizes": [
+        544,
+        178,
+        210,
+        376
+      ]
+    },
+    {
+      "case": 77,
+      "checkpoint_step": 2,
+      "checkpointed": true,
+      "coordinate_updates": 16320,
+      "dtype": "float16",
+      "fiber_bytes": 4080,
+      "kind": "low16",
+      "payload_write_digest": "7d5cce9213f58ec3c1b877d13bd6acc5339701a10efc53b4820094ce07874ffe",
+      "seed": 2180783,
+      "status": "PASS",
+      "steps": 19,
+      "tensor_sizes": [
+        1020
+      ]
+    },
+    {
+      "case": 78,
+      "checkpoint_step": 4,
+      "checkpointed": true,
+      "coordinate_updates": 27902,
+      "dtype": "float32",
+      "fiber_bytes": 152,
+      "kind": "sign",
+      "payload_write_digest": "65f8992851dc5e5eb1636d046e1cd7da294e20ec259abf4693857af42b342ec5",
+      "seed": 1690787,
+      "status": "PASS",
+      "steps": 26,
+      "tensor_sizes": [
+        83,
+        957,
+        181
+      ]
+    },
+    {
+      "case": 79,
+      "checkpoint_step": 11,
+      "checkpointed": true,
+      "coordinate_updates": 27378,
+      "dtype": "float16",
+      "fiber_bytes": 6084,
+      "kind": "low16",
+      "payload_write_digest": "768b2e997400d27f826c21fe726a7ba5e63f5a1f7c784aef938a2357a01052e5",
+      "seed": 2200797,
+      "status": "PASS",
+      "steps": 21,
+      "tensor_sizes": [
+        185,
+        633,
+        99,
+        604
+      ]
+    },
+    {
+      "case": 80,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 30290,
+      "dtype": "float16",
+      "fiber_bytes": 378,
+      "kind": "sign",
+      "payload_write_digest": "bf59de73002335e87a4e3646213e987c5e9e866b6b1d66230ba0c79eafa6735c",
+      "seed": 1710801,
+      "status": "PASS",
+      "steps": 12,
+      "tensor_sizes": [
+        632,
+        979,
+        661,
+        149,
+        608
+      ]
+    },
+    {
+      "case": 81,
+      "checkpoint_step": 11,
+      "checkpointed": true,
+      "coordinate_updates": 2465,
+      "dtype": "bfloat16",
+      "fiber_bytes": 580,
+      "kind": "low16",
+      "payload_write_digest": "6889fdbf2a11f976755a5bafccae98c22c83672c387706edc33c71da7879c3bf",
+      "seed": 2220811,
+      "status": "PASS",
+      "steps": 20,
+      "tensor_sizes": [
+        145
+      ]
+    },
+    {
+      "case": 82,
+      "checkpoint_step": 8,
+      "checkpointed": true,
+      "coordinate_updates": 17973,
+      "dtype": "float16",
+      "fiber_bytes": 269,
+      "kind": "sign",
+      "payload_write_digest": "08f988cb9fe9edc270808100cb1d23891da46027023dad3f15698652b4f7d91c",
+      "seed": 1730815,
+      "status": "PASS",
+      "steps": 10,
+      "tensor_sizes": [
+        103,
+        423,
+        887,
+        109,
+        632
+      ]
+    },
+    {
+      "case": 83,
+      "checkpoint_step": 13,
+      "checkpointed": true,
+      "coordinate_updates": 35352,
+      "dtype": "float16",
+      "fiber_bytes": 7856,
+      "kind": "low16",
+      "payload_write_digest": "fb0392c6ac4c2780424e00152253821cce66e1d6d27fff8f4d5fa6b8f75aef9a",
+      "seed": 2240825,
+      "status": "PASS",
+      "steps": 21,
+      "tensor_sizes": [
+        816,
+        296,
+        852
+      ]
+    },
+    {
+      "case": 84,
+      "checkpoint_step": 16,
+      "checkpointed": true,
+      "coordinate_updates": 31784,
+      "dtype": "bfloat16",
+      "fiber_bytes": 182,
+      "kind": "sign",
+      "payload_write_digest": "f3a87cf639cca06a5f05bbad632f76db6c3700ab82d9d26530c67c432241c07a",
+      "seed": 1750829,
+      "status": "PASS",
+      "steps": 25,
+      "tensor_sizes": [
+        314,
+        325,
+        820
+      ]
+    },
+    {
+      "case": 85,
+      "checkpoint_step": 6,
+      "checkpointed": true,
+      "coordinate_updates": 14501,
+      "dtype": "bfloat16",
+      "fiber_bytes": 3412,
+      "kind": "low16",
+      "payload_write_digest": "134ad9d3bc360fe2a71a0b0220804612e6d156c7e18a6df8ab355627d59a44d5",
+      "seed": 2260839,
+      "status": "PASS",
+      "steps": 19,
+      "tensor_sizes": [
+        853
+      ]
+    },
+    {
+      "case": 86,
+      "checkpoint_step": 14,
+      "checkpointed": true,
+      "coordinate_updates": 1196,
+      "dtype": "float16",
+      "fiber_bytes": 6,
+      "kind": "sign",
+      "payload_write_digest": "bf48c0361e273fb73b07d3358ce62bd18bd1882d1bd2579786e1fc3f965f60b3",
+      "seed": 1770843,
+      "status": "PASS",
+      "steps": 27,
+      "tensor_sizes": [
+        52
+      ]
+    },
+    {
+      "case": 87,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 7250,
+      "dtype": "float32",
+      "fiber_bytes": 2900,
+      "kind": "low16",
+      "payload_write_digest": "c84439e4c3fd6f5a55490174a96080d46f812908084b933a468f3b519f5d6c7b",
+      "seed": 2280853,
+      "status": "PASS",
+      "steps": 12,
+      "tensor_sizes": [
+        236,
+        168,
+        321
+      ]
+    },
+    {
+      "case": 88,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 7133,
+      "dtype": "float32",
+      "fiber_bytes": 113,
+      "kind": "sign",
+      "payload_write_digest": "3b5711bc115e6174da52edf0231fcb49be9af1062cae363ab3568d097e411289",
+      "seed": 1790857,
+      "status": "PASS",
+      "steps": 9,
+      "tensor_sizes": [
+        59,
+        739,
+        107
+      ]
+    },
+    {
+      "case": 89,
+      "checkpoint_step": 2,
+      "checkpointed": true,
+      "coordinate_updates": 6692,
+      "dtype": "float32",
+      "fiber_bytes": 3824,
+      "kind": "low16",
+      "payload_write_digest": "b818ae3de05536334da76e12e5d468c2e9d33979e37c73255c27314e516bfd70",
+      "seed": 2300867,
+      "status": "PASS",
+      "steps": 8,
+      "tensor_sizes": [
+        654,
+        302
+      ]
+    },
+    {
+      "case": 90,
+      "checkpoint_step": 15,
+      "checkpointed": true,
+      "coordinate_updates": 5175,
+      "dtype": "float16",
+      "fiber_bytes": 43,
+      "kind": "sign",
+      "payload_write_digest": "a21f908a759e428e73a3c5b014b308af1822328d91d08ab89fe34c464470679a",
+      "seed": 1810871,
+      "status": "PASS",
+      "steps": 18,
+      "tensor_sizes": [
+        345
+      ]
+    },
+    {
+      "case": 91,
+      "checkpoint_step": 21,
+      "checkpointed": true,
+      "coordinate_updates": 44676,
+      "dtype": "float16",
+      "fiber_bytes": 8692,
+      "kind": "low16",
+      "payload_write_digest": "4ba7bf364c8f597912dbd0554b453144ee390ac5326e5da2d8aaf007743df5e5",
+      "seed": 2320881,
+      "status": "PASS",
+      "steps": 24,
+      "tensor_sizes": [
+        957,
+        273,
+        943
+      ]
+    },
+    {
+      "case": 92,
+      "checkpoint_step": 3,
+      "checkpointed": true,
+      "coordinate_updates": 52840,
+      "dtype": "float32",
+      "fiber_bytes": 330,
+      "kind": "sign",
+      "payload_write_digest": "ad822488d005f1ae30ce906f7ec9a9fbf2579790187bd6ac09a32aee3d4433e1",
+      "seed": 1830885,
+      "status": "PASS",
+      "steps": 23,
+      "tensor_sizes": [
+        1024,
+        12,
+        814,
+        469,
+        323
+      ]
+    },
+    {
+      "case": 93,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 8520,
+      "dtype": "float16",
+      "fiber_bytes": 3408,
+      "kind": "low16",
+      "payload_write_digest": "0a81e83cdd0d577479ca9671584dfb67bfced65a903db3903a830bc30255647e",
+      "seed": 2340895,
+      "status": "PASS",
+      "steps": 11,
+      "tensor_sizes": [
+        194,
+        658
+      ]
+    },
+    {
+      "case": 94,
+      "checkpoint_step": 4,
+      "checkpointed": true,
+      "coordinate_updates": 7410,
+      "dtype": "float16",
+      "fiber_bytes": 61,
+      "kind": "sign",
+      "payload_write_digest": "13f5ffcf7092eab43eee26be7a40764c6df520f43b9ffaea324f4d8fead0bb61",
+      "seed": 1850899,
+      "status": "PASS",
+      "steps": 17,
+      "tensor_sizes": [
+        257,
+        237
+      ]
+    },
+    {
+      "case": 95,
+      "checkpoint_step": 4,
+      "checkpointed": true,
+      "coordinate_updates": 4445,
+      "dtype": "bfloat16",
+      "fiber_bytes": 2540,
+      "kind": "low16",
+      "payload_write_digest": "01628d7c3d5b23a8abfd801133644072b899c0393ea31b4ae3e74646dc5cd88e",
+      "seed": 2360909,
+      "status": "PASS",
+      "steps": 8,
+      "tensor_sizes": [
+        635
+      ]
+    },
+    {
+      "case": 96,
+      "checkpoint_step": 5,
+      "checkpointed": true,
+      "coordinate_updates": 23796,
+      "dtype": "bfloat16",
+      "fiber_bytes": 247,
+      "kind": "sign",
+      "payload_write_digest": "add39c18833f82f270e97d52dc51d9f7692f36c500974aa62fbe3bbdf0a53088",
+      "seed": 1870913,
+      "status": "PASS",
+      "steps": 14,
+      "tensor_sizes": [
+        994,
+        989
+      ]
+    },
+    {
+      "case": 97,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 22006,
+      "dtype": "float16",
+      "fiber_bytes": 11732,
+      "kind": "low16",
+      "payload_write_digest": "b83e9c10597fe162c993571b40ad7cb1f7c132786c2990e5f1d2998768d0602c",
+      "seed": 2380923,
+      "status": "PASS",
+      "steps": 9,
+      "tensor_sizes": [
+        550,
+        908,
+        84,
+        734,
+        657
+      ]
+    },
+    {
+      "case": 98,
+      "checkpoint_step": 12,
+      "checkpointed": true,
+      "coordinate_updates": 21250,
+      "dtype": "bfloat16",
+      "fiber_bytes": 209,
+      "kind": "sign",
+      "payload_write_digest": "d709d4040b6035e77c8d257940f37d27adacb8d69ab2b47fb5177fb15410d4c0",
+      "seed": 1890927,
+      "status": "PASS",
+      "steps": 15,
+      "tensor_sizes": [
+        486,
+        980,
+        206
+      ]
+    },
+    {
+      "case": 99,
+      "checkpoint_step": 23,
+      "checkpointed": true,
+      "coordinate_updates": 50578,
+      "dtype": "float16",
+      "fiber_bytes": 9196,
+      "kind": "low16",
+      "payload_write_digest": "03e96d7fc3b495e65d619bf572afd55c741c04b862d461d6170c1b40cc238d0a",
+      "seed": 2400937,
+      "status": "PASS",
+      "steps": 25,
+      "tensor_sizes": [
+        774,
+        935,
+        590
+      ]
+    },
+    {
+      "case": 100,
+      "checkpoint_step": 18,
+      "checkpointed": true,
+      "coordinate_updates": 4935,
+      "dtype": "float32",
+      "fiber_bytes": 29,
+      "kind": "sign",
+      "payload_write_digest": "2e6eeaafb5169fd1405d8ac68d8f9d4d068e12baa654e126db96c88b20fa2a8d",
+      "seed": 1910941,
+      "status": "PASS",
+      "steps": 24,
+      "tensor_sizes": [
+        235
+      ]
+    },
+    {
+      "case": 101,
+      "checkpoint_step": 15,
+      "checkpointed": true,
+      "coordinate_updates": 46780,
+      "dtype": "bfloat16",
+      "fiber_bytes": 12328,
+      "kind": "low16",
+      "payload_write_digest": "c579edb80e6ff65c7a712b20c09e7a1303ca7f9bd1ef79fb7baed222399011ff",
+      "seed": 2420951,
+      "status": "PASS",
+      "steps": 18,
+      "tensor_sizes": [
+        550,
+        235,
+        901,
+        580,
+        816
+      ]
+    },
+    {
+      "case": 102,
+      "checkpoint_step": 8,
+      "checkpointed": true,
+      "coordinate_updates": 14826,
+      "dtype": "float16",
+      "fiber_bytes": 216,
+      "kind": "sign",
+      "payload_write_digest": "6e177fe3687dcb312cbdb47c8f280514700ce3e03ed5763be1caac277fe0c67d",
+      "seed": 1930955,
+      "status": "PASS",
+      "steps": 10,
+      "tensor_sizes": [
+        1002,
+        726
+      ]
+    },
+    {
+      "case": 103,
+      "checkpoint_step": 6,
+      "checkpointed": true,
+      "coordinate_updates": 4272,
+      "dtype": "float16",
+      "fiber_bytes": 712,
+      "kind": "low16",
+      "payload_write_digest": "1e9caa1b0f5d9adb1bdf3265c9e3e84d7a97d3b937e6dea19b26e0691be42e31",
+      "seed": 2440965,
+      "status": "PASS",
+      "steps": 28,
+      "tensor_sizes": [
+        109,
+        69
+      ]
+    },
+    {
+      "case": 104,
+      "checkpoint_step": 15,
+      "checkpointed": true,
+      "coordinate_updates": 38358,
+      "dtype": "bfloat16",
+      "fiber_bytes": 305,
+      "kind": "sign",
+      "payload_write_digest": "dd04d87dd9dedec0750dc2e85ff7da69eb06270d97be7214c6854a8283947663",
+      "seed": 1950969,
+      "status": "PASS",
+      "steps": 18,
+      "tensor_sizes": [
+        695,
+        99,
+        142,
+        685,
+        826
+      ]
+    },
+    {
+      "case": 105,
+      "checkpoint_step": 5,
+      "checkpointed": true,
+      "coordinate_updates": 23794,
+      "dtype": "float32",
+      "fiber_bytes": 9948,
+      "kind": "low16",
+      "payload_write_digest": "75ce4adedf2cbbc6e80a5b75feed878a8c50e4ca20fe447cd20397c64c3b8311",
+      "seed": 2460979,
+      "status": "PASS",
+      "steps": 11,
+      "tensor_sizes": [
+        780,
+        218,
+        659,
+        534,
+        296
+      ]
+    },
+    {
+      "case": 106,
+      "checkpoint_step": 10,
+      "checkpointed": true,
+      "coordinate_updates": 363,
+      "dtype": "bfloat16",
+      "fiber_bytes": 4,
+      "kind": "sign",
+      "payload_write_digest": "f27ed1573129b7f54a04b5359f7daf3b5868a9ba776cefef492515e970eb3c3d",
+      "seed": 1970983,
+      "status": "PASS",
+      "steps": 12,
+      "tensor_sizes": [
+        33
+      ]
+    },
+    {
+      "case": 107,
+      "checkpoint_step": 8,
+      "checkpointed": true,
+      "coordinate_updates": 20358,
+      "dtype": "bfloat16",
+      "fiber_bytes": 6264,
+      "kind": "low16",
+      "payload_write_digest": "12c43e75e13d36216a54cf16901fad48c8276098282b67772bc9bcdbdbbdf6f9",
+      "seed": 2480993,
+      "status": "PASS",
+      "steps": 15,
+      "tensor_sizes": [
+        795,
+        771
+      ]
+    },
+    {
+      "case": 108,
+      "checkpoint_step": 4,
+      "checkpointed": true,
+      "coordinate_updates": 20468,
+      "dtype": "float16",
+      "fiber_bytes": 365,
+      "kind": "sign",
+      "payload_write_digest": "ce54bce8e188c06fc4f13bc236874d52f8677321a4c0166361ac5d5efbdcdf5d",
+      "seed": 1990997,
+      "status": "PASS",
+      "steps": 8,
+      "tensor_sizes": [
+        380,
+        876,
+        982,
+        686
+      ]
+    },
+    {
+      "case": 109,
+      "checkpoint_step": 17,
+      "checkpointed": true,
+      "coordinate_updates": 23142,
+      "dtype": "bfloat16",
+      "fiber_bytes": 4408,
+      "kind": "low16",
+      "payload_write_digest": "f787020ce9863da0c04eae1c7c37f368fdb6da0d1e6fa232ce2a9ad5e91a32a7",
+      "seed": 2501007,
+      "status": "PASS",
+      "steps": 25,
+      "tensor_sizes": [
+        520,
+        582
+      ]
+    },
+    {
+      "case": 110,
+      "checkpoint_step": 8,
+      "checkpointed": true,
+      "coordinate_updates": 7616,
+      "dtype": "bfloat16",
+      "fiber_bytes": 68,
+      "kind": "sign",
+      "payload_write_digest": "d2cca4367d3f8745fdbdaaa96e1df7f06cae9363d76e43592bd767f3363583ce",
+      "seed": 2011011,
+      "status": "PASS",
+      "steps": 17,
+      "tensor_sizes": [
+        544
+      ]
+    },
+    {
+      "case": 111,
+      "checkpoint_step": 4,
+      "checkpointed": true,
+      "coordinate_updates": 5257,
+      "dtype": "float16",
+      "fiber_bytes": 3004,
+      "kind": "low16",
+      "payload_write_digest": "26b4fd7d68985baa2b19907fc48f72f91b14c027e87bb5786e246e4e44af889b",
+      "seed": 2521021,
+      "status": "PASS",
+      "steps": 9,
+      "tensor_sizes": [
+        751
+      ]
+    },
+    {
+      "case": 112,
+      "checkpoint_step": 11,
+      "checkpointed": true,
+      "coordinate_updates": 10516,
+      "dtype": "bfloat16",
+      "fiber_bytes": 59,
+      "kind": "sign",
+      "payload_write_digest": "71b29a9a718c270e071db1b626c13b327405b1ea7eace2314eff4af554a2966a",
+      "seed": 2031025,
+      "status": "PASS",
+      "steps": 26,
+      "tensor_sizes": [
+        478
+      ]
+    },
+    {
+      "case": 113,
+      "checkpoint_step": 5,
+      "checkpointed": true,
+      "coordinate_updates": 4277,
+      "dtype": "float16",
+      "fiber_bytes": 1316,
+      "kind": "low16",
+      "payload_write_digest": "1539a320ab1906de4b29705514ce89813feb9320940f26954dddea2b6eafef63",
+      "seed": 2541035,
+      "status": "PASS",
+      "steps": 15,
+      "tensor_sizes": [
+        79,
+        250
+      ]
+    },
+    {
+      "case": 114,
+      "checkpoint_step": 13,
+      "checkpointed": true,
+      "coordinate_updates": 53006,
+      "dtype": "float32",
+      "fiber_bytes": 451,
+      "kind": "sign",
+      "payload_write_digest": "bc2ad1937f339ce9b229790682c98d76e47b0136e25dab812a12ccd27f7b6baf",
+      "seed": 2051039,
+      "status": "PASS",
+      "steps": 17,
+      "tensor_sizes": [
+        952,
+        871,
+        615,
+        797,
+        377
+      ]
+    },
+    {
+      "case": 115,
+      "checkpoint_step": 6,
+      "checkpointed": true,
+      "coordinate_updates": 15770,
+      "dtype": "bfloat16",
+      "fiber_bytes": 6308,
+      "kind": "low16",
+      "payload_write_digest": "d3750a389f712cfc705dc7c34bae508fcca8752c9cc4597d51f83778909e1f4c",
+      "seed": 2561049,
+      "status": "PASS",
+      "steps": 12,
+      "tensor_sizes": [
+        572,
+        724,
+        60,
+        221
+      ]
+    },
+    {
+      "case": 116,
+      "checkpoint_step": 9,
+      "checkpointed": true,
+      "coordinate_updates": 24229,
+      "dtype": "float16",
+      "fiber_bytes": 295,
+      "kind": "sign",
+      "payload_write_digest": "c22a9a797333939b74a1679d7ea8cd1f5eab7393fd4727dec0a21a0ff136b4c2",
+      "seed": 2071053,
+      "status": "PASS",
+      "steps": 12,
+      "tensor_sizes": [
+        184,
+        548,
+        767,
+        287,
+        579
+      ]
+    },
+    {
+      "case": 117,
+      "checkpoint_step": 2,
+      "checkpointed": true,
+      "coordinate_updates": 39792,
+      "dtype": "float32",
+      "fiber_bytes": 6632,
+      "kind": "low16",
+      "payload_write_digest": "c498b2e8ffb78399021643c873f6ffa487b7aecff7e90c890cc53012c5d836d4",
+      "seed": 2581063,
+      "status": "PASS",
+      "steps": 28,
+      "tensor_sizes": [
+        447,
+        837,
+        374
+      ]
+    },
+    {
+      "case": 118,
+      "checkpoint_step": 5,
+      "checkpointed": true,
+      "coordinate_updates": 3862,
+      "dtype": "float32",
+      "fiber_bytes": 37,
+      "kind": "sign",
+      "payload_write_digest": "4bef137d318def4d79873ef34b6238561ea7be8b394cb8682adfa504220873a3",
+      "seed": 2091067,
+      "status": "PASS",
+      "steps": 15,
+      "tensor_sizes": [
+        286,
+        12
+      ]
+    },
+    {
+      "case": 119,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 20775,
+      "dtype": "float32",
+      "fiber_bytes": 8700,
+      "kind": "low16",
+      "payload_write_digest": "f049964a7dd2238c5969b83bd9fb3f56448c8be0795f546ebed70021f8f8f8b5",
+      "seed": 2601077,
+      "status": "PASS",
+      "steps": 11,
+      "tensor_sizes": [
+        159,
+        47,
+        404,
+        749,
+        816
+      ]
+    },
+    {
+      "case": 120,
+      "checkpoint_step": 18,
+      "checkpointed": true,
+      "coordinate_updates": 43560,
+      "dtype": "bfloat16",
+      "fiber_bytes": 247,
+      "kind": "sign",
+      "payload_write_digest": "3e55ce8eaaa7d5ed1812084fe985f0085ee8ef7c82386d0a1bc2ac07708d8d82",
+      "seed": 2111081,
+      "status": "PASS",
+      "steps": 25,
+      "tensor_sizes": [
+        986,
+        994
+      ]
+    },
+    {
+      "case": 121,
+      "checkpoint_step": 23,
+      "checkpointed": true,
+      "coordinate_updates": 26285,
+      "dtype": "float32",
+      "fiber_bytes": 4708,
+      "kind": "low16",
+      "payload_write_digest": "51d172a52b384e43bbbeb93afee7dda6f66ea45e69757f07c757e429ba0c606e",
+      "seed": 2621091,
+      "status": "PASS",
+      "steps": 26,
+      "tensor_sizes": [
+        391,
+        398,
+        388
+      ]
+    },
+    {
+      "case": 122,
+      "checkpoint_step": 7,
+      "checkpointed": true,
+      "coordinate_updates": 22194,
+      "dtype": "float16",
+      "fiber_bytes": 191,
+      "kind": "sign",
+      "payload_write_digest": "c622ca540a4c138b55dc75988d26e05b1117db3728f6192cb8e18ff5238060b4",
+      "seed": 2131095,
+      "status": "PASS",
+      "steps": 17,
+      "tensor_sizes": [
+        218,
+        556,
+        756
+      ]
+    },
+    {
+      "case": 123,
+      "checkpoint_step": 6,
+      "checkpointed": true,
+      "coordinate_updates": 3612,
+      "dtype": "float32",
+      "fiber_bytes": 1032,
+      "kind": "low16",
+      "payload_write_digest": "5166fbefade6c94e11098a8836964861790874416b98c08c1ad28f99da6148b0",
+      "seed": 2641105,
+      "status": "PASS",
+      "steps": 16,
+      "tensor_sizes": [
+        258
+      ]
+    },
+    {
+      "case": 124,
+      "checkpoint_step": 8,
+      "checkpointed": true,
+      "coordinate_updates": 15108,
+      "dtype": "float32",
+      "fiber_bytes": 157,
+      "kind": "sign",
+      "payload_write_digest": "b848c29e140e628bf6658b171e24c24fe97707a606b9bf5da7fb67f59af75e22",
+      "seed": 2151109,
+      "status": "PASS",
+      "steps": 14,
+      "tensor_sizes": [
+        545,
+        648,
+        66
+      ]
+    },
+    {
+      "case": 125,
+      "checkpoint_step": 9,
+      "checkpointed": true,
+      "coordinate_updates": 12384,
+      "dtype": "float16",
+      "fiber_bytes": 5504,
+      "kind": "low16",
+      "payload_write_digest": "ced87ad783d988749253297ce3a7a38eca7d0a3bb9c5e85a6306c5d6c9700532",
+      "seed": 2661119,
+      "status": "PASS",
+      "steps": 11,
+      "tensor_sizes": [
+        452,
+        924
+      ]
+    },
+    {
+      "case": 126,
+      "checkpoint_step": 8,
+      "checkpointed": true,
+      "coordinate_updates": 44089,
+      "dtype": "float16",
+      "fiber_bytes": 332,
+      "kind": "sign",
+      "payload_write_digest": "c7ff164b32f19de4a28563a478f2d4bc4911f809df71dbb18634d0898d24b220",
+      "seed": 2171123,
+      "status": "PASS",
+      "steps": 19,
+      "tensor_sizes": [
+        1011,
+        1017,
+        560,
+        69
+      ]
+    },
+    {
+      "case": 127,
+      "checkpoint_step": 18,
+      "checkpointed": true,
+      "coordinate_updates": 43058,
+      "dtype": "bfloat16",
+      "fiber_bytes": 10104,
+      "kind": "low16",
+      "payload_write_digest": "17f2c90f148d8b9c7247f018ea17bd294e8e3b793b219f73b6705566b882e950",
+      "seed": 2681133,
+      "status": "PASS",
+      "steps": 20,
+      "tensor_sizes": [
+        116,
+        463,
+        344,
+        713,
+        890
+      ]
+    }
+  ],
+  "schema": "dfc-github-cpu-randomized-fuzz-v1",
+  "sign_cases": 64,
+  "status": "PASS",
+  "total_coordinate_updates": 2917694
+}
