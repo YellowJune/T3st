@@ -1,0 +1,24 @@
+{
+  "cases": 8,
+  "claim": "Physical FP32 decoder-fiber optimizer state survives FP16/BF16 checkpoint restore and continued training on paper-era PyTorch 2.7.1 and the current CPU release.",
+  "excluded": [
+    "GPU performance",
+    "H100-class behavior"
+  ],
+  "github_run_id": "32313360235",
+  "runs": [
+    {
+      "file": "current.json",
+      "sha256": "d5e0d37e49c13bae43c4735a80f00d45fa8566756f502713c1e3d6d06bef3c5c",
+      "torch": "2.13.0+cpu"
+    },
+    {
+      "file": "paper-era-2.7.1.json",
+      "sha256": "4b5422981f0db8275d11dff3b2d29def0601c497cbeec1ae18ca0ab85206dd6d",
+      "torch": "2.7.1+cpu"
+    }
+  ],
+  "schema": "dfc-mixed-dtype-physical-checkpoint-aggregate-v1",
+  "source_sha": "0a71e3f4e451bb209cc70ee60afeb72ece74ade2",
+  "status": "PASS"
+}

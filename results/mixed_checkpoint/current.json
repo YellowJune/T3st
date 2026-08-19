@@ -1,0 +1,61 @@
+{
+  "cases": [
+    {
+      "checkpoint_bytes": 17026,
+      "method": "sign",
+      "parameter_dtype": "float16",
+      "payload_bytes": 160,
+      "payload_sha256": "aea65c1b6abd7503a9638c6aef699561206648d169baa433d8e61f72d400fc8a",
+      "physical_state_dtype": "float32",
+      "post_steps": 11,
+      "pre_steps": 7,
+      "status": "PASS"
+    },
+    {
+      "checkpoint_bytes": 17026,
+      "method": "low16",
+      "parameter_dtype": "float16",
+      "payload_bytes": 5124,
+      "payload_sha256": "75e9ff19cd61242c5b4f6a12ce21623705430f4bd57fc87a8b4d297d188c2fc2",
+      "physical_state_dtype": "float32",
+      "post_steps": 11,
+      "pre_steps": 7,
+      "status": "PASS"
+    },
+    {
+      "checkpoint_bytes": 17026,
+      "method": "sign",
+      "parameter_dtype": "bfloat16",
+      "payload_bytes": 160,
+      "payload_sha256": "a0ec8cb3dc31e1681f1e058479c33da137c1e27dcfa54bc5211341b47ae0d0f6",
+      "physical_state_dtype": "float32",
+      "post_steps": 11,
+      "pre_steps": 7,
+      "status": "PASS"
+    },
+    {
+      "checkpoint_bytes": 17026,
+      "method": "low16",
+      "parameter_dtype": "bfloat16",
+      "payload_bytes": 5124,
+      "payload_sha256": "1ca5ef34ed32130d66d37f7d3e08aa93c17f7dbd6dd358eeecb6f281b31dc5f0",
+      "physical_state_dtype": "float32",
+      "post_steps": 11,
+      "pre_steps": 7,
+      "status": "PASS"
+    }
+  ],
+  "claim": "FP16/BF16 parameter checkpoints preserve physical FP32 DFC-SIGN/DFC-LOW16 payload state and resume bit-identically to uninterrupted execution.",
+  "environment": {
+    "cuda_available": false,
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "python": "3.12.14 (main, Aug 13 2026, 02:47:42) [GCC 13.3.0]",
+    "torch": "2.13.0+cpu"
+  },
+  "excluded": [
+    "GPU performance",
+    "accelerator behavior"
+  ],
+  "schema": "dfc-mixed-dtype-physical-checkpoint-v1",
+  "status": "PASS"
+}
