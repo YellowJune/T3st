@@ -1,0 +1,32 @@
+{
+  "github_run_attempt": "1",
+  "github_run_id": "32312525942",
+  "hardware_scope": "GitHub-hosted CPU only; no CUDA/H100/H200/B200/B300 claims",
+  "raw_evidence": [
+    {
+      "coordinate_updates": 224256,
+      "file": "ddp_gloo_2rank.json",
+      "schema": "dfc-github-cpu-ddp-v1",
+      "sha256": "abfc1ece8da680461b59ce54265526123144cab08b603a1b56264d7cb1d7f5bd",
+      "status": "PASS"
+    },
+    {
+      "coordinate_updates": 21177040,
+      "file": "frontier_py3.11.json",
+      "schema": "dfc-github-cpu-frontier-v1",
+      "sha256": "dcb07b4a05c208ae056de2a91b67dc2ba30220bca10db07d561b236c47a84ab3",
+      "status": "PASS"
+    },
+    {
+      "coordinate_updates": 21177040,
+      "file": "frontier_py3.12.json",
+      "schema": "dfc-github-cpu-frontier-v1",
+      "sha256": "30b11385807383236206eae43ec7412b65418c9bdbad43987c4402941fa5f91e",
+      "status": "PASS"
+    }
+  ],
+  "schema": "dfc-github-cpu-frontier-aggregate-v1",
+  "source_sha": "e1335b89add2b7cd144b1d97295bd4212c225d8c",
+  "status": "PASS",
+  "total_reported_coordinate_updates": 42578336
+}
