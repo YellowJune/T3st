@@ -1,9 +1,9 @@
-"""PyTorch implementation of exact FP32 sign-fiber AdamW.
+"""PyTorch implementation of exact FP32 decoder-fiber AdamW variants.
 
-This file has no dependency on the NumPy reference implementation.  Optimizer
-states remain ordinary FP32 tensors, so state_dict checkpoints, AMP master
-states, gradient accumulation, DDP, and FSDP local shards retain the payload in
-the same tensors they already serialize or communicate.
+Optimizer states remain ordinary FP32 tensors.  The custom ``load_state_dict``
+paths deliberately restore the serialized FP32 physical moment tensors after
+PyTorch's generic optimizer loader, preventing parameter-dtype casting from
+silently destroying sign/low-word payload bits for FP16/BF16 parameters.
 """
 
 from __future__ import annotations
@@ -19,6 +19,52 @@ SIGN_MASK_I32 = -2147483648
 MAGNITUDE_MASK_I32 = 2147483647
 LOW16_MASK_I32 = 65535
 HIGH16_MASK_I32 = -65536
+
+
+def _capture_physical_moments(state_dict: dict, keys: Sequence[str]) -> list[dict[str, torch.Tensor]]:
+    """Clone serialized physical FP32 moments in saved parameter order.
+
+    ``torch.optim.Optimizer.load_state_dict`` casts floating optimizer state to
+    the destination parameter dtype.  That behavior is normally convenient,
+    but a decoder fiber treats the *physical FP32 bit pattern* as part of the
+    state contract.  Capture it before the generic loader can cast it.
+    """
+    saved_state = state_dict.get("state", {})
+    captured: list[dict[str, torch.Tensor]] = []
+    for group in state_dict.get("param_groups", []):
+        for saved_id in group.get("params", []):
+            src = saved_state.get(saved_id, {})
+            row: dict[str, torch.Tensor] = {}
+            for key in keys:
+                value = src.get(key)
+                if value is None:
+                    continue
+                if not torch.is_tensor(value):
+                    raise TypeError(f"serialized {key} must be a tensor")
+                if value.dtype != torch.float32:
+                    raise TypeError(
+                        f"serialized {key} must remain physical FP32; got {value.dtype}"
+                    )
+                row[key] = value.detach().clone()
+            captured.append(row)
+    return captured
+
+
+def _restore_physical_moments(
+    optimizer: torch.optim.Optimizer,
+    captured: Sequence[dict[str, torch.Tensor]],
+) -> None:
+    params = [p for group in optimizer.param_groups for p in group["params"]]
+    if len(params) != len(captured):
+        raise ValueError(
+            f"checkpoint parameter count mismatch: current={len(params)} saved={len(captured)}"
+        )
+    for parameter, saved in zip(params, captured):
+        state = optimizer.state[parameter]
+        for key, value in saved.items():
+            # Same-dtype device copies preserve the physical FP32 word.  No
+            # numerical conversion to the parameter dtype is permitted here.
+            state[key] = value.to(device=parameter.device, dtype=torch.float32)
 
 
 class DFCAdamW(torch.optim.Optimizer):
@@ -55,6 +101,12 @@ class DFCAdamW(torch.optim.Optimizer):
                     state["exp_avg_sq"] = torch.zeros_like(
                         parameter, dtype=torch.float32, memory_format=torch.preserve_format
                     )
+
+    def load_state_dict(self, state_dict: dict):
+        captured = _capture_physical_moments(state_dict, ("exp_avg", "exp_avg_sq"))
+        result = super().load_state_dict(state_dict)
+        _restore_physical_moments(self, captured)
+        return result
 
     def second_moment_tensors(self) -> list[torch.Tensor]:
         return [
@@ -232,6 +284,12 @@ class DFCLow16AdamW(torch.optim.Optimizer):
                     state["exp_avg_sq"] = torch.zeros_like(
                         parameter, dtype=torch.float32, memory_format=torch.preserve_format
                     )
+
+    def load_state_dict(self, state_dict: dict):
+        captured = _capture_physical_moments(state_dict, ("exp_avg", "exp_avg_sq"))
+        result = super().load_state_dict(state_dict)
+        _restore_physical_moments(self, captured)
+        return result
 
     def low_word_tensors(self) -> list[torch.Tensor]:
         first = [
