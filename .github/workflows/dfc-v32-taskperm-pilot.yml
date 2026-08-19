@@ -4,6 +4,9 @@ on:
   push:
     branches: [dfc-v3.2-github-cpu-frontier]
     paths: ['.github/workflows/dfc-v32-taskperm-pilot.yml']
+  pull_request:
+    branches: [dfc-v2.1-validation]
+    paths: ['.github/workflows/dfc-v32-taskperm-pilot.yml']
   workflow_dispatch:
 
 permissions:
@@ -93,8 +96,6 @@ jobs:
             'forgetting_pp':100*(dfc['average_forgetting']-der['average_forgetting']),
             'current_task_pp':100*(dfc['current_task_accuracy']-der['current_task_accuracy']),
           }
-          # Development-only screen.  This is NOT a confirmatory publication gate;
-          # it only decides whether a separately frozen multi-seed protocol is worth running.
           promising=(delta['final_accuracy_pp']>0 and delta['forgetting_pp']<=0 and delta['current_task_pp']>=-5)
           report={
             'schema':'dfc-qwen-taskperm-development-pilot-v1',
@@ -129,6 +130,7 @@ jobs:
           if-no-files-found: error
           retention-days: 90
       - name: Persist development evidence on isolated result branch
+        if: github.event_name != 'pull_request'
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
