@@ -1,0 +1,71 @@
+{
+  "explicitly_excluded_claims": [
+    "GPU latency or throughput",
+    "Nsight DRAM/L2 hardware counters",
+    "H100/H200/B200/B300 architecture generalization",
+    "CUDA/Triton performance overhead"
+  ],
+  "github_run_attempt": "1",
+  "github_run_id": "32313835954",
+  "hardware_scope": "GitHub-hosted CPU only; no CUDA/H100/H200/B200/B300 claims",
+  "publication_claims_supported": [
+    "adversarial DFC-SIGN payload noninterference",
+    "FP32/BF16/FP16 parameter-dtype coverage with FP32 optimizer state",
+    "cross-optimizer-tensor payload addressing",
+    "DFC-SIGN and DFC-LOW16 checkpoint/restore/continued-training preservation",
+    "multi-parameter-group, weight-decay, accumulated-gradient, and missing-gradient coverage",
+    "closed-form DFC-SIGN and DFC-LOW16 capacity identities",
+    "finite IEEE-754 subnormal/sign-payload boundary exactness",
+    "multi-million-coordinate CPU stress exactness",
+    "128 randomized adversarial SIGN/LOW16 cases with randomized tensor partitions, hyperparameters, missing gradients, payload rewrites, and checkpoint positions",
+    "2-rank and 4-rank CPU/Gloo DDP with rank-distinct hidden payloads and identical semantic parameters"
+  ],
+  "raw_evidence": [
+    {
+      "coordinate_updates": 299008,
+      "file": "ddp_gloo_2rank.json",
+      "schema": "dfc-github-cpu-ddp-v2",
+      "sha256": "460e46af80f7664cd1d63aae7414d66ac3912406e2a4d25a02454fec2c1b1701",
+      "status": "PASS"
+    },
+    {
+      "coordinate_updates": 598016,
+      "file": "ddp_gloo_4rank.json",
+      "schema": "dfc-github-cpu-ddp-v2",
+      "sha256": "4f1195f55cb57842f0eeb3cb20f5a42839907a87eb4efe397957c9cb6d6538eb",
+      "status": "PASS"
+    },
+    {
+      "coordinate_updates": 21177040,
+      "file": "frontier_py3.11.json",
+      "schema": "dfc-github-cpu-frontier-v1",
+      "sha256": "640979f2d84f7d85523b743e69809d107694da76d9973b10039a08e4f32d38e3",
+      "status": "PASS"
+    },
+    {
+      "coordinate_updates": 21177040,
+      "file": "frontier_py3.12.json",
+      "schema": "dfc-github-cpu-frontier-v1",
+      "sha256": "bd7528cfaf59e75dc2c73bdbeb7cbc5956e0e82f0418d2855a32cc9825f827d3",
+      "status": "PASS"
+    },
+    {
+      "coordinate_updates": 2917694,
+      "file": "randomized_fuzz_128.json",
+      "schema": "dfc-github-cpu-randomized-fuzz-v1",
+      "sha256": "51ceb4353537bd06514b3a2f5e88170a073e29cf8714ad667c766b1598d68aed",
+      "status": "PASS"
+    }
+  ],
+  "schema": "dfc-github-cpu-frontier-aggregate-v3",
+  "source_sha": "b73896816a762b3e8286ca7fc8ca2139045eeb3a",
+  "source_sha256": {
+    ".github/workflows/dfc-github-cpu-frontier.yml": "3a6dedef9c3876f187c145951476d3e0a5799edbe2569d21f550cc0fcd22702f",
+    "cpu_frontier/ddp_cpu_exactness.py": "1d44cb40f1f1c43ae5084129457f5157b990b8096521364165dd63997eb99695",
+    "cpu_frontier/frontier_suite.py": "b58b65a924b208a60dd8f11e4ca67cd2721b07b673ac4bfe977600868751fa0b",
+    "cpu_frontier/randomized_fuzz.py": "f560a69675e97560a987627bd1dac599e83f205d1a74b5e2540209b058a1fe23",
+    "remote/torch_fiber.py": "a6ed79d29dd591804aa60a2bba6de12ee0d7fb7804e1375d37f8d5402fd86f48"
+  },
+  "status": "PASS",
+  "total_reported_coordinate_updates": 46168798
+}
