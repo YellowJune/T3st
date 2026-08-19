@@ -1,0 +1,156 @@
+{
+  "environment": {
+    "cpu_threads": 2,
+    "cuda_available": false,
+    "numpy": "2.5.2",
+    "platform": "Windows-2025Server-10.0.26100-SP0",
+    "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "torch": "2.13.0+cpu"
+  },
+  "experiments": {
+    "capacity_law": {
+      "rows": [
+        {
+          "coordinates": 1,
+          "low16_bytes": 4,
+          "sign_bytes": 0
+        },
+        {
+          "coordinates": 7,
+          "low16_bytes": 28,
+          "sign_bytes": 0
+        },
+        {
+          "coordinates": 8,
+          "low16_bytes": 32,
+          "sign_bytes": 1
+        },
+        {
+          "coordinates": 9,
+          "low16_bytes": 36,
+          "sign_bytes": 1
+        },
+        {
+          "coordinates": 127,
+          "low16_bytes": 508,
+          "sign_bytes": 15
+        },
+        {
+          "coordinates": 128,
+          "low16_bytes": 512,
+          "sign_bytes": 16
+        },
+        {
+          "coordinates": 129,
+          "low16_bytes": 516,
+          "sign_bytes": 16
+        },
+        {
+          "coordinates": 1024,
+          "low16_bytes": 4096,
+          "sign_bytes": 128
+        },
+        {
+          "coordinates": 4097,
+          "low16_bytes": 16388,
+          "sign_bytes": 512
+        }
+      ],
+      "status": "PASS",
+      "wall_seconds": 0.002463900000009289
+    },
+    "checkpoint_resume_low16": {
+      "payload_sha256": "07b85ee3dc929c28a9739174301d27a8d0005b46e80307022bbf7f9428021b7a",
+      "post_resume_steps": 9,
+      "pre_resume_steps": 7,
+      "status": "PASS",
+      "wall_seconds": 0.02299899999999866
+    },
+    "checkpoint_resume_sign": {
+      "payload_sha256": "f7cded38624b0f32e1fce12499ecc027849de08c0f9794c797ed2464fc15759d",
+      "post_resume_steps": 11,
+      "pre_resume_steps": 9,
+      "status": "PASS",
+      "wall_seconds": 0.024340900000026977
+    },
+    "cross_tensor_boundaries": {
+      "low16_bytes_checked": 75,
+      "sign_bits_checked": 61,
+      "status": "PASS",
+      "wall_seconds": 0.002152199999983395
+    },
+    "low16_stress": {
+      "coordinate_updates": 131072,
+      "coordinates": 16384,
+      "payload_bytes": 65536,
+      "payload_sha256": "e2ed11f5c0633a67a2419cd82f1b5a9c48013182bcbf56bcf6064a8a57e26b93",
+      "status": "PASS",
+      "steps": 8,
+      "wall_seconds": 0.009334700000010798
+    },
+    "noncontiguous_storage_diagnostic": {
+      "payload_survived": false,
+      "status": "UNSUPPORTED"
+    },
+    "parameter_groups_and_accumulation": {
+      "accumulations_per_step": 3,
+      "includes_missing_gradient_steps": true,
+      "status": "PASS",
+      "steps": 12,
+      "wall_seconds": 0.008407099999999446
+    },
+    "sign_dtype_matrix": {
+      "dtypes": {
+        "bfloat16": {
+          "payload_bytes": 80,
+          "status": "PASS"
+        },
+        "float16": {
+          "payload_bytes": 80,
+          "status": "PASS"
+        },
+        "float32": {
+          "payload_bytes": 80,
+          "status": "PASS"
+        }
+      },
+      "status": "PASS",
+      "wall_seconds": 0.016842299999979105
+    },
+    "sign_payload_patterns": {
+      "coordinate_updates": 205520,
+      "coordinates": 5138,
+      "patterns": 5,
+      "payload_bytes": 642,
+      "status": "PASS",
+      "steps": 40,
+      "wall_seconds": 1.3486960999999837
+    },
+    "sign_stress": {
+      "coordinate_updates": 524288,
+      "coordinates": 32768,
+      "payload_bytes": 4096,
+      "payload_sha256": "6c804fd09691dee2877819163bc6e3ed7bdba9c94783e7152dad1585452cbe30",
+      "status": "PASS",
+      "steps": 16,
+      "wall_seconds": 0.0188966999999991
+    },
+    "subnormal_and_signed_zero": {
+      "coordinates": 64,
+      "covers_signed_zero_or_subnormal_boundary": true,
+      "status": "PASS",
+      "wall_seconds": 0.0012021000000004278
+    }
+  },
+  "finished_unix": 1787182310.6428158,
+  "hardware_claims_excluded": [
+    "GPU latency or throughput",
+    "Nsight DRAM/L2 hardware counters",
+    "H100/H200/B200/B300 architecture generalization",
+    "CUDA/Triton performance overhead"
+  ],
+  "schema": "dfc-github-cpu-frontier-v1",
+  "started_unix": 1787182309.1863873,
+  "status": "PASS",
+  "total_stress_coordinate_updates": 860880
+}
