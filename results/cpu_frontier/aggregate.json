@@ -1,0 +1,55 @@
+{
+  "explicitly_excluded_claims": [
+    "GPU latency or throughput",
+    "Nsight DRAM/L2 hardware counters",
+    "H100/H200/B200/B300 architecture generalization",
+    "CUDA/Triton performance overhead"
+  ],
+  "github_run_attempt": "1",
+  "github_run_id": "32312957727",
+  "hardware_scope": "GitHub-hosted CPU only; no CUDA/H100/H200/B200/B300 claims",
+  "publication_claims_supported": [
+    "adversarial DFC-SIGN payload noninterference",
+    "FP32/BF16/FP16 parameter-dtype coverage with FP32 optimizer state",
+    "cross-optimizer-tensor payload addressing",
+    "DFC-SIGN and DFC-LOW16 checkpoint/restore/continued-training preservation",
+    "multi-parameter-group, weight-decay, accumulated-gradient, and missing-gradient coverage",
+    "closed-form DFC-SIGN and DFC-LOW16 capacity identities",
+    "finite IEEE-754 subnormal/sign-payload boundary exactness",
+    "multi-million-coordinate CPU stress exactness",
+    "two-rank CPU/Gloo DDP with rank-distinct hidden payloads and identical semantic parameters"
+  ],
+  "raw_evidence": [
+    {
+      "coordinate_updates": 299008,
+      "file": "ddp_gloo_2rank.json",
+      "schema": "dfc-github-cpu-ddp-v1",
+      "sha256": "6766272a25ef352136550ef893d7b7ce51143d78f61be846f4cef85691bf04f5",
+      "status": "PASS"
+    },
+    {
+      "coordinate_updates": 21177040,
+      "file": "frontier_py3.11.json",
+      "schema": "dfc-github-cpu-frontier-v1",
+      "sha256": "591ebf219fb64e93a93db51d622035a0e0f10ee4baea4be0bab966b98870c221",
+      "status": "PASS"
+    },
+    {
+      "coordinate_updates": 21177040,
+      "file": "frontier_py3.12.json",
+      "schema": "dfc-github-cpu-frontier-v1",
+      "sha256": "0d0cefcb8c2f56e8133176d5988722961909aa60e53e4ae66e63bb6afccf51a5",
+      "status": "PASS"
+    }
+  ],
+  "schema": "dfc-github-cpu-frontier-aggregate-v2",
+  "source_sha": "5766c2eb3c82853da2f610637e392ec1062f5d19",
+  "source_sha256": {
+    ".github/workflows/dfc-github-cpu-frontier.yml": "271c3473cc7f378bbec2ee3655dd15d8be0bda95fbd21e92c998e21c7898155e",
+    "cpu_frontier/ddp_cpu_exactness.py": "df8c1058e778ef12faffc48954cfd4b0e1a87c80614efc2d13e7cc8727953ca7",
+    "cpu_frontier/frontier_suite.py": "b58b65a924b208a60dd8f11e4ca67cd2721b07b673ac4bfe977600868751fa0b",
+    "remote/torch_fiber.py": "9c623448806900698d801a60e8a1c1cbe47e4ae24f1293bf0d8d58fdef1c7905"
+  },
+  "status": "PASS",
+  "total_reported_coordinate_updates": 42653088
+}

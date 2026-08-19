@@ -1,0 +1,17 @@
+{
+  "backend": "gloo",
+  "claim": "rank-distinct DFC-SIGN payloads preserve the bit-identical DDP semantic parameter trajectory",
+  "coordinate_updates": 299008,
+  "coordinates_per_rank": 9344,
+  "cuda_available": false,
+  "payloads_distinct": true,
+  "rank_payload_sha256": [
+    "afe7be68d6f813bdee2baca62a9790dbeb5111c211b6ff752ef8e1a5b7b56f99",
+    "9304eff6a284ce54a27d531f998fe2ef962cace34802ca1acc22c8dcf5fc7eb5"
+  ],
+  "schema": "dfc-github-cpu-ddp-v1",
+  "semantic_parameter_sha256": "db6eff4c646ae8be64a438f10fcb19bb7ee932ff523191e8b9cba8b931df4af3",
+  "status": "PASS",
+  "steps": 16,
+  "world_size": 2
+}
