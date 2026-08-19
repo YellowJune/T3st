@@ -7,6 +7,12 @@ on:
     paths:
       - "cpu_frontier/**"
       - ".github/workflows/dfc-cpu-portability.yml"
+  pull_request:
+    branches:
+      - dfc-v2.1-validation
+    paths:
+      - "cpu_frontier/**"
+      - ".github/workflows/dfc-cpu-portability.yml"
   workflow_dispatch:
 
 permissions:
@@ -122,6 +128,7 @@ jobs:
           path: results/portability/
           if-no-files-found: error
       - name: Persist immutable portability evidence
+        if: github.event_name != 'pull_request'
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
