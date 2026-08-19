@@ -3,8 +3,10 @@
 
 The goal is breadth rather than benchmark performance: tensor partitions,
 parameter dtypes, AdamW hyperparameters, gradients, and payload bytes vary per
-trial. Every accepted trial requires exact equality to its decoder-defined
-reference trajectory and exact payload persistence.
+trial. Every accepted trial requires bit-exact equality to its decoder-defined
+reference trajectory and exact payload persistence.  The oracle compares raw
+bytes rather than floating equality so identical NaN/Inf trajectories are not
+misclassified as divergence.
 """
 
 from __future__ import annotations
@@ -48,9 +50,24 @@ def clone_params(params: nn.ParameterList) -> nn.ParameterList:
 
 
 def exact(a: torch.Tensor, b: torch.Tensor, label: str):
-    if not torch.equal(a, b):
-        neq = int(torch.count_nonzero(a != b).item())
-        raise AssertionError(f"{label}: {neq} unequal elements")
+    """Require identical tensor metadata and physical bytes.
+
+    ``torch.equal`` intentionally treats NaN != NaN.  That is unsuitable for
+    an exact trajectory oracle because an unstable randomized configuration can
+    drive *both* the reference and DFC paths to the same non-finite bit pattern.
+    Comparing the raw tensor bytes is both stricter and semantically correct for
+    DFC's bit-level noninterference contract.
+    """
+    if a.shape != b.shape or a.dtype != b.dtype:
+        raise AssertionError(
+            f"{label}: metadata mismatch shape={tuple(a.shape)}/{tuple(b.shape)} "
+            f"dtype={a.dtype}/{b.dtype}"
+        )
+    a_bytes = a.detach().contiguous().view(torch.uint8)
+    b_bytes = b.detach().contiguous().view(torch.uint8)
+    if not torch.equal(a_bytes, b_bytes):
+        neq = int(torch.count_nonzero(a_bytes != b_bytes).item())
+        raise AssertionError(f"{label}: {neq} unequal bytes")
 
 
 def compare_sign(ref_opt: DFCAdamW, dfc_opt: DFCAdamW):
@@ -200,10 +217,15 @@ def main():
         method = "sign" if trial % 2 == 0 else "low16"
         trial_seed = args.seed + 1000 * trial
         t0 = time.perf_counter()
-        if method == "sign":
-            updates = sign_trial(config, trial_seed)
-        else:
-            updates = low16_trial(config, trial_seed)
+        try:
+            if method == "sign":
+                updates = sign_trial(config, trial_seed)
+            else:
+                updates = low16_trial(config, trial_seed)
+        except Exception as exc:
+            raise AssertionError(
+                f"trial={trial} method={method} seed={trial_seed} config={config}: {exc}"
+            ) from exc
         total_updates += updates
         rows.append({
             "method": method,
@@ -215,7 +237,7 @@ def main():
 
     canonical_rows = json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()
     report = {
-        "schema": "dfc-cpu-randomized-fuzz-v1",
+        "schema": "dfc-cpu-randomized-fuzz-v2-bitwise-oracle",
         "status": "PASS",
         "seed": args.seed,
         "trials": args.trials,
@@ -238,6 +260,7 @@ def main():
             "tensor_count_min": min(len(r["config"]["sizes"]) for r in rows),
             "tensor_count_max": max(len(r["config"]["sizes"]) for r in rows),
         },
+        "oracle": "bitwise tensor-byte equality; identical non-finite reference/DFC states are treated as equal",
         "started_unix": started,
         "finished_unix": time.time(),
         "rows": rows,
