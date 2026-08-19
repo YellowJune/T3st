@@ -6,17 +6,23 @@ on:
       - dfc-v3.2-github-cpu-frontier
     paths:
       - "cpu_frontier/**"
+      - "remote/torch_fiber.py"
       - ".github/workflows/dfc-github-cpu-frontier.yml"
   pull_request:
     branches:
       - dfc-v2.1-validation
     paths:
       - "cpu_frontier/**"
+      - "remote/torch_fiber.py"
       - ".github/workflows/dfc-github-cpu-frontier.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: dfc-github-cpu-frontier-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   frontier:
@@ -32,15 +38,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - name: Install CPU-only dependencies
+      - name: Install pinned CPU-only dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install numpy torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy==2.2.6
+          python -m pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
       - name: Confirm CPU-only execution boundary
         run: |
           python - <<'PY'
-          import torch
+          import numpy as np, torch
           print("torch", torch.__version__)
+          print("numpy", np.__version__)
           print("cuda_available", torch.cuda.is_available())
           if torch.cuda.is_available():
               raise SystemExit("This workflow is intentionally CPU-only")
@@ -63,6 +71,7 @@ jobs:
           name: dfc-cpu-frontier-py${{ matrix.python }}
           path: results/cpu_frontier/
           if-no-files-found: error
+          retention-days: 90
 
   ddp:
     name: two-rank-gloo-ddp
@@ -72,20 +81,28 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: Install CPU-only dependencies
+          python-version: "3.11"
+      - name: Install pinned CPU-only dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install numpy torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy==2.2.6
+          python -m pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
+      - name: Confirm CPU-only execution boundary
+        run: |
+          python - <<'PY'
+          import torch
+          if torch.cuda.is_available():
+              raise SystemExit("This workflow is intentionally CPU-only")
+          PY
       - name: Run two-rank CPU DDP exactness gate
         env:
           OMP_NUM_THREADS: "2"
           MKL_NUM_THREADS: "2"
         run: >-
-          torchrun --standalone --nproc-per-node=2
+          python -m torch.distributed.run --standalone --nproc_per_node=2
           cpu_frontier/ddp_cpu_exactness.py
           --output results/cpu_frontier/ddp_gloo_2rank.json
-          --steps 12
+          --steps 16
       - name: Hash DDP evidence
         run: sha256sum results/cpu_frontier/*.json > results/cpu_frontier/SHA256SUMS_ddp.txt
       - uses: actions/upload-artifact@v4
@@ -93,6 +110,7 @@ jobs:
           name: dfc-cpu-frontier-ddp
           path: results/cpu_frontier/
           if-no-files-found: error
+          retention-days: 90
 
   aggregate:
     name: aggregate-and-freeze
@@ -101,6 +119,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           pattern: dfc-cpu-frontier-*
@@ -119,6 +139,9 @@ jobs:
               obj = json.loads(path.read_text())
               if obj.get("status") != "PASS":
                   raise SystemExit(f"publication gate failed: {path}: {obj.get('status')}")
+              cuda = bool(obj.get("environment", {}).get("cuda_available", obj.get("cuda_available", False)))
+              if cuda:
+                  raise SystemExit(f"CPU-only contract violated by {path}")
               rows.append({
                   "file": path.name,
                   "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -126,15 +149,42 @@ jobs:
                   "status": obj.get("status"),
                   "coordinate_updates": obj.get("coordinate_updates", obj.get("total_stress_coordinate_updates", 0)),
               })
+
+          sources = [
+              pathlib.Path("cpu_frontier/frontier_suite.py"),
+              pathlib.Path("cpu_frontier/ddp_cpu_exactness.py"),
+              pathlib.Path("remote/torch_fiber.py"),
+              pathlib.Path(".github/workflows/dfc-github-cpu-frontier.yml"),
+          ]
+          source_hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}
+
           report = {
-              "schema": "dfc-github-cpu-frontier-aggregate-v1",
+              "schema": "dfc-github-cpu-frontier-aggregate-v2",
               "status": "PASS",
               "github_run_id": os.environ["GITHUB_RUN_ID"],
               "github_run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
               "source_sha": os.environ["GITHUB_SHA"],
               "hardware_scope": "GitHub-hosted CPU only; no CUDA/H100/H200/B200/B300 claims",
               "raw_evidence": rows,
+              "source_sha256": source_hashes,
               "total_reported_coordinate_updates": sum(int(r["coordinate_updates"]) for r in rows),
+              "publication_claims_supported": [
+                  "adversarial DFC-SIGN payload noninterference",
+                  "FP32/BF16/FP16 parameter-dtype coverage with FP32 optimizer state",
+                  "cross-optimizer-tensor payload addressing",
+                  "DFC-SIGN and DFC-LOW16 checkpoint/restore/continued-training preservation",
+                  "multi-parameter-group, weight-decay, accumulated-gradient, and missing-gradient coverage",
+                  "closed-form DFC-SIGN and DFC-LOW16 capacity identities",
+                  "finite IEEE-754 subnormal/sign-payload boundary exactness",
+                  "multi-million-coordinate CPU stress exactness",
+                  "two-rank CPU/Gloo DDP with rank-distinct hidden payloads and identical semantic parameters",
+              ],
+              "explicitly_excluded_claims": [
+                  "GPU latency or throughput",
+                  "Nsight DRAM/L2 hardware counters",
+                  "H100/H200/B200/B300 architecture generalization",
+                  "CUDA/Triton performance overhead",
+              ],
           }
           out = root / "aggregate.json"
           out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
@@ -147,9 +197,10 @@ jobs:
           cat SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: dfc-cpu-frontier-complete
+          name: dfc-cpu-frontier-complete-${{ github.run_id }}-attempt${{ github.run_attempt }}
           path: results/cpu_frontier/
           if-no-files-found: error
+          retention-days: 90
       - name: Persist immutable evidence on isolated result branch
         if: github.event_name != 'pull_request'
         run: |
