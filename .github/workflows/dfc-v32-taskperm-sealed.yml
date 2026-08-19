@@ -1,0 +1,191 @@
+name: DFC v3.2 Qwen task-permutation sealed CPU gate
+
+on:
+  push:
+    branches: [dfc-v3.2-github-cpu-frontier]
+    paths: ['.github/workflows/dfc-v32-taskperm-sealed.yml']
+  pull_request:
+    branches: [dfc-v2.1-validation]
+    paths: ['.github/workflows/dfc-v32-taskperm-sealed.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dfc-v32-taskperm-sealed-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  paired:
+    name: taskperm-${{ matrix.method }}-seed${{ matrix.seed }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        method: [derpp, dfc_sign_derpp]
+        seed: [1601, 1613, 1627, 1657, 1693]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install frozen CPU execution stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.7.1
+          python -m pip install 'transformers>=4.51,<5' 'peft>=0.15,<1' 'accelerate>=1.4,<2' 'huggingface_hub>=0.30,<1' 'datasets>=3,<5' sentencepiece
+      - name: Enforce CPU-only boundary
+        run: python -c "import torch; assert not torch.cuda.is_available()"
+      - name: Run frozen real-text continual task-adaptation cell
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+          TOKENIZERS_PARALLELISM: 'false'
+        working-directory: remote
+        run: |
+          python llm_continual_qwen_agnews_taskperm.py \
+            --method '${{ matrix.method }}' \
+            --seed '${{ matrix.seed }}' \
+            --steps-per-task 96 \
+            --external-bytes 512 \
+            --train-per-class 8 \
+            --eval-per-class 16 \
+            --lora-rank 4 \
+            --lora-last-layers 4 \
+            --lr 0.01 \
+            --distill-weight 0.025 \
+            --output '../results/taskperm_sealed/${{ matrix.method }}_seed${{ matrix.seed }}.json'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: taskperm-${{ matrix.method }}-seed${{ matrix.seed }}
+          path: results/taskperm_sealed/*.json
+          if-no-files-found: error
+          retention-days: 90
+
+  aggregate:
+    name: aggregate-predeclared-gates
+    needs: paired
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: taskperm-*-seed*
+          path: results/taskperm_sealed
+          merge-multiple: true
+      - name: Verify resource identity and evaluate frozen gates
+        env:
+          SEALED_SEEDS: '1601,1613,1627,1657,1693'
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, pathlib, statistics
+          root=pathlib.Path('results/taskperm_sealed')
+          seeds=[int(x) for x in os.environ['SEALED_SEEDS'].split(',')]
+          identity_keys=(
+            'model','resolved_model_revision','dataset','resolved_dataset_revision',
+            'external_bytes','batch_size','steps_per_task','tasks','updates',
+            'processed_text_slots','seq_len','trainable_parameters','lora_rank',
+            'lora_last_layers','lr','weight_decay','record_bytes','distill_weight',
+            'train_per_class','eval_per_class','replay_fraction',
+          )
+          rows=[]
+          for seed in seeds:
+            dp=root/f'derpp_seed{seed}.json'; fp=root/f'dfc_sign_derpp_seed{seed}.json'
+            der=json.loads(dp.read_text()); dfc=json.loads(fp.read_text())
+            drift={k:[der.get(k),dfc.get(k)] for k in identity_keys if der.get(k)!=dfc.get(k)}
+            if drift:
+              raise SystemExit(f'seed {seed}: resource/protocol drift: {drift}')
+            # Dataset subset must be paired within a seed, but should vary across sealed seeds.
+            if der.get('dataset_subset_sha256')!=dfc.get('dataset_subset_sha256'):
+              raise SystemExit(f'seed {seed}: dataset subset mismatch')
+            if int(dfc['sign_fiber_bytes']) != int(dfc['trainable_parameters'])//8:
+              raise SystemExit(f'seed {seed}: sign-fiber capacity identity failed')
+            row={
+              'seed':seed,
+              'dataset_subset_sha256':der['dataset_subset_sha256'],
+              'derpp_final':der['final_average_accuracy'],
+              'dfc_final':dfc['final_average_accuracy'],
+              'derpp_forgetting':der['average_forgetting'],
+              'dfc_forgetting':dfc['average_forgetting'],
+              'derpp_current':der['current_task_accuracy'],
+              'dfc_current':dfc['current_task_accuracy'],
+              'final_delta_pp':100*(dfc['final_average_accuracy']-der['final_average_accuracy']),
+              'forgetting_delta_pp':100*(dfc['average_forgetting']-der['average_forgetting']),
+              'current_delta_pp':100*(dfc['current_task_accuracy']-der['current_task_accuracy']),
+              'derpp_capacity':der['record_capacity'],
+              'dfc_capacity':dfc['record_capacity'],
+              'sign_fiber_bytes':dfc['sign_fiber_bytes'],
+              'derpp_sha256':hashlib.sha256(dp.read_bytes()).hexdigest(),
+              'dfc_sha256':hashlib.sha256(fp.read_bytes()).hexdigest(),
+            }
+            rows.append(row)
+          if len({r['dataset_subset_sha256'] for r in rows}) != len(rows):
+            raise SystemExit('sealed seeds unexpectedly reused an identical dataset subset')
+          mean=lambda key: statistics.fmean(r[key] for r in rows)
+          delta={
+            'final_accuracy_pp':mean('final_delta_pp'),
+            'forgetting_pp':mean('forgetting_delta_pp'),
+            'current_task_pp':mean('current_delta_pp'),
+          }
+          # Frozen before any sealed evaluation output is observed.
+          strict_pareto_gate=(delta['final_accuracy_pp']>0.0 and delta['forgetting_pp']<0.0 and delta['current_task_pp']>=-1.0)
+          agnews_compat_gate=(delta['final_accuracy_pp']>0.0 and delta['forgetting_pp']<0.0 and delta['current_task_pp']>=-5.0)
+          report={
+            'schema':'dfc-qwen-taskperm-sealed-v1',
+            'status':'PASS' if strict_pareto_gate else 'FAIL',
+            'confirmatory':True,
+            'source_sha':os.environ['GITHUB_SHA'],
+            'github_run_id':os.environ['GITHUB_RUN_ID'],
+            'hardware_scope':'GitHub-hosted CPU only; no accelerator claim',
+            'seeds':seeds,
+            'paired_rows':rows,
+            'mean_delta':delta,
+            'strict_predeclared_gate':{
+              'definition':'final > 0 pp; forgetting < 0 pp; current >= -1 pp',
+              'passed':strict_pareto_gate,
+            },
+            'secondary_agnews_compatibility_gate':{
+              'definition':'final > 0 pp; forgetting < 0 pp; current >= -5 pp',
+              'passed':agnews_compat_gate,
+            },
+            'claim_boundary':'This is a balanced AG News task-permutation continual-adaptation protocol, distinct from the preserved class-incremental AG News falsifier.',
+          }
+          out=root/'aggregate_taskperm_sealed.json'
+          out.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          print(out.read_text())
+          # Do not hide a failed confirmatory result. Preserve artifact either way,
+          # then make the workflow conclusion reflect the strict preregistered gate.
+          pathlib.Path('results/taskperm_sealed/gate_exit_code.txt').write_text('0\n' if strict_pareto_gate else '1\n')
+          PY
+      - name: Freeze SHA-256 manifest
+        run: |
+          cd results/taskperm_sealed
+          sha256sum *.json > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: taskperm-sealed-complete-${{ github.run_id }}
+          path: results/taskperm_sealed/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist immutable sealed evidence
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          branch="result-${GITHUB_RUN_ID}-taskperm-sealed"
+          git checkout -b "$branch"
+          git add -f results/taskperm_sealed/
+          git commit -m "Record sealed Qwen task-permutation evidence ${GITHUB_RUN_ID}"
+          git push origin HEAD
+      - name: Enforce strict predeclared gate after evidence upload
+        run: |
+          code=$(cat results/taskperm_sealed/gate_exit_code.txt)
+          if [ "$code" != "0" ]; then
+            echo 'Strict predeclared task-permutation gate failed; evidence retained.' >&2
+            exit 1
+          fi
