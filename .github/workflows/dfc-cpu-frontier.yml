@@ -20,7 +20,7 @@ concurrency:
 jobs:
   single-process:
     name: CPU exactness (Python ${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -31,15 +31,25 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
       - name: Install pinned CPU dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install numpy==2.2.6
           python -m pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
+      - name: Confirm CPU-only execution boundary
+        run: |
+          python - <<'PY'
+          import torch
+          print('torch', torch.__version__)
+          print('cuda_available', torch.cuda.is_available())
+          if torch.cuda.is_available():
+              raise SystemExit('CPU frontier workflow unexpectedly has CUDA')
+          PY
       - name: Run publication gates
         env:
           PYTAG: ${{ matrix.python }}
+          OMP_NUM_THREADS: '4'
+          MKL_NUM_THREADS: '4'
         run: |
           mkdir -p raw
           python cpu_frontier/frontier_suite.py \
@@ -48,47 +58,60 @@ jobs:
             --sign-steps 64 \
             --low-coordinates 131072 \
             --low-steps 32
+      - name: Hash raw exactness record
+        run: sha256sum raw/*.json > raw/SHA256SUMS.txt
       - name: Upload raw exactness record
         uses: actions/upload-artifact@v4
         with:
           name: cpu-frontier-py${{ matrix.python }}
-          path: raw/*.json
+          path: raw/
           if-no-files-found: error
           retention-days: 90
 
   ddp-gloo:
     name: Two-rank CPU/Gloo DDP exactness
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: pip
       - name: Install pinned CPU dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install numpy==2.2.6
           python -m pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
+      - name: Confirm CPU-only execution boundary
+        run: |
+          python - <<'PY'
+          import torch
+          if torch.cuda.is_available():
+              raise SystemExit('CPU DDP frontier workflow unexpectedly has CUDA')
+          PY
       - name: Run two-rank Gloo gate
+        env:
+          OMP_NUM_THREADS: '2'
+          MKL_NUM_THREADS: '2'
         run: |
           mkdir -p raw
           python -m torch.distributed.run --standalone --nproc_per_node=2 \
             cpu_frontier/ddp_cpu_exactness.py \
             --output raw/cpu_frontier_ddp_gloo.json \
             --steps 16
+      - name: Hash raw DDP record
+        run: sha256sum raw/*.json > raw/SHA256SUMS.txt
       - name: Upload raw DDP record
         uses: actions/upload-artifact@v4
         with:
           name: cpu-frontier-ddp-gloo
-          path: raw/*.json
+          path: raw/
           if-no-files-found: error
           retention-days: 90
 
   aggregate:
     name: Seal CPU frontier evidence
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [single-process, ddp-gloo]
     timeout-minutes: 10
     steps:
@@ -123,13 +146,14 @@ jobs:
                   raise SystemExit(f'{path} is not PASS')
               if bool(obj.get('environment', {}).get('cuda_available', obj.get('cuda_available', False))):
                   raise SystemExit(f'{path} unexpectedly used CUDA')
-              total_updates += int(obj.get('total_stress_coordinate_updates', obj.get('coordinate_updates', 0)))
+              updates = int(obj.get('total_stress_coordinate_updates', obj.get('coordinate_updates', 0)))
+              total_updates += updates
               records.append({
                   'file': path.name,
                   'schema': obj.get('schema'),
                   'sha256': hashlib.sha256(raw).hexdigest(),
                   'status': obj.get('status'),
-                  'coordinate_updates': int(obj.get('total_stress_coordinate_updates', obj.get('coordinate_updates', 0))),
+                  'coordinate_updates': updates,
               })
 
           source_files = [
@@ -169,27 +193,29 @@ jobs:
                   'CUDA/Triton performance overhead',
               ],
           }
-          out = Path('sealed') / f"cpu_frontier_run_{os.environ['RUN_ID']}.json"
+          out = Path('sealed') / f"cpu_frontier_run_{os.environ['RUN_ID']}_attempt{os.environ['RUN_ATTEMPT']}.json"
           out.parent.mkdir(parents=True, exist_ok=True)
           out.write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n')
           print(out.read_text())
           PY
+      - name: Freeze SHA-256 manifest
+        run: sha256sum sealed/*.json > sealed/SHA256SUMS.txt
       - name: Upload sealed aggregate
         uses: actions/upload-artifact@v4
         with:
-          name: cpu-frontier-sealed-${{ github.run_id }}
-          path: sealed/*.json
+          name: cpu-frontier-sealed-${{ github.run_id }}-attempt${{ github.run_attempt }}
+          path: sealed/
           if-no-files-found: error
           retention-days: 90
       - name: Persist sealed result on isolated result branch
         env:
-          RESULT_BRANCH: result-${{ github.run_id }}-cpu-frontier
+          RESULT_BRANCH: result-${{ github.run_id }}-attempt${{ github.run_attempt }}-cpu-frontier
         run: |
           mkdir -p results/cpu_frontier
-          cp sealed/*.json results/cpu_frontier/
+          cp sealed/* results/cpu_frontier/
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git checkout -b "$RESULT_BRANCH"
           git add -- results/cpu_frontier/
-          git commit -m "Record sealed DFC CPU frontier run ${{ github.run_id }}"
+          git commit -m "Record sealed DFC CPU frontier run ${{ github.run_id }} attempt ${{ github.run_attempt }}"
           git push origin "HEAD:refs/heads/$RESULT_BRANCH"
