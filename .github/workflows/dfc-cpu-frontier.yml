@@ -1,0 +1,195 @@
+name: DFC CPU Frontier Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dfc-v3.2-github-cpu-frontier
+    paths:
+      - 'cpu_frontier/**'
+      - 'remote/torch_fiber.py'
+      - '.github/workflows/dfc-cpu-frontier.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dfc-cpu-frontier-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  single-process:
+    name: CPU exactness (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install pinned CPU dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.2.6
+          python -m pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
+      - name: Run publication gates
+        env:
+          PYTAG: ${{ matrix.python }}
+        run: |
+          mkdir -p raw
+          python cpu_frontier/frontier_suite.py \
+            --output "raw/cpu_frontier_py${PYTAG}.json" \
+            --sign-coordinates 262144 \
+            --sign-steps 64 \
+            --low-coordinates 131072 \
+            --low-steps 32
+      - name: Upload raw exactness record
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpu-frontier-py${{ matrix.python }}
+          path: raw/*.json
+          if-no-files-found: error
+          retention-days: 90
+
+  ddp-gloo:
+    name: Two-rank CPU/Gloo DDP exactness
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install pinned CPU dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.2.6
+          python -m pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
+      - name: Run two-rank Gloo gate
+        run: |
+          mkdir -p raw
+          python -m torch.distributed.run --standalone --nproc_per_node=2 \
+            cpu_frontier/ddp_cpu_exactness.py \
+            --output raw/cpu_frontier_ddp_gloo.json \
+            --steps 16
+      - name: Upload raw DDP record
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpu-frontier-ddp-gloo
+          path: raw/*.json
+          if-no-files-found: error
+          retention-days: 90
+
+  aggregate:
+    name: Seal CPU frontier evidence
+    runs-on: ubuntu-latest
+    needs: [single-process, ddp-gloo]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cpu-frontier-*
+          path: collected
+          merge-multiple: true
+      - name: Validate and aggregate all raw records
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          files = sorted(Path('collected').glob('*.json'))
+          if len(files) != 3:
+              raise SystemExit(f'expected exactly 3 raw JSON records, found {len(files)}: {files}')
+
+          records = []
+          total_updates = 0
+          for path in files:
+              raw = path.read_bytes()
+              obj = json.loads(raw)
+              if obj.get('status') != 'PASS':
+                  raise SystemExit(f'{path} is not PASS')
+              if bool(obj.get('environment', {}).get('cuda_available', obj.get('cuda_available', False))):
+                  raise SystemExit(f'{path} unexpectedly used CUDA')
+              total_updates += int(obj.get('total_stress_coordinate_updates', obj.get('coordinate_updates', 0)))
+              records.append({
+                  'file': path.name,
+                  'schema': obj.get('schema'),
+                  'sha256': hashlib.sha256(raw).hexdigest(),
+                  'status': obj.get('status'),
+                  'coordinate_updates': int(obj.get('total_stress_coordinate_updates', obj.get('coordinate_updates', 0))),
+              })
+
+          source_files = [
+              Path('cpu_frontier/frontier_suite.py'),
+              Path('cpu_frontier/ddp_cpu_exactness.py'),
+              Path('remote/torch_fiber.py'),
+              Path('.github/workflows/dfc-cpu-frontier.yml'),
+          ]
+          source_hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in source_files}
+
+          summary = {
+              'schema': 'dfc-github-cpu-frontier-aggregate-v1',
+              'status': 'PASS',
+              'run_id': int(os.environ['RUN_ID']),
+              'run_attempt': int(os.environ['RUN_ATTEMPT']),
+              'source_sha': os.environ['SOURCE_SHA'],
+              'accelerator_required': False,
+              'cuda_used': False,
+              'records': records,
+              'total_coordinate_updates': total_updates,
+              'source_sha256': source_hashes,
+              'publication_claims_supported': [
+                  'DFC-SIGN payload noninterference under adversarial payload patterns',
+                  'FP32/BF16/FP16 parameter-dtype coverage with FP32 optimizer state',
+                  'cross-optimizer-tensor payload addressing',
+                  'DFC-SIGN and DFC-LOW16 checkpoint/restore/continued-training preservation',
+                  'multi-parameter-group, weight-decay, accumulated-gradient, and missing-gradient coverage',
+                  'closed-form DFC-SIGN and DFC-LOW16 capacity identities',
+                  'finite IEEE-754 subnormal/sign-payload boundary exactness',
+                  'multi-million-coordinate CPU stress exactness',
+                  'two-rank CPU/Gloo DDP with rank-distinct hidden payloads and identical semantic parameters',
+              ],
+              'explicitly_excluded_claims': [
+                  'GPU latency or throughput',
+                  'Nsight DRAM/L2 hardware counters',
+                  'H100/H200/B200/B300 architecture generalization',
+                  'CUDA/Triton performance overhead',
+              ],
+          }
+          out = Path('sealed') / f"cpu_frontier_run_{os.environ['RUN_ID']}.json"
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n')
+          print(out.read_text())
+          PY
+      - name: Upload sealed aggregate
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpu-frontier-sealed-${{ github.run_id }}
+          path: sealed/*.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Persist sealed result on isolated result branch
+        env:
+          RESULT_BRANCH: result-${{ github.run_id }}-cpu-frontier
+        run: |
+          mkdir -p results/cpu_frontier
+          cp sealed/*.json results/cpu_frontier/
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -b "$RESULT_BRANCH"
+          git add -- results/cpu_frontier/
+          git commit -m "Record sealed DFC CPU frontier run ${{ github.run_id }}"
+          git push origin "HEAD:refs/heads/$RESULT_BRANCH"
