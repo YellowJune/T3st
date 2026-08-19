@@ -1,0 +1,35 @@
+{
+  "confirmatory": false,
+  "derpp": {
+    "average_forgetting": 0.19270833333333334,
+    "current_task_accuracy": 0.3828125,
+    "final_average_accuracy": 0.23828125,
+    "record_capacity": 4,
+    "wall_seconds": 187.674990443
+  },
+  "development_screen_promising": false,
+  "dfc_sign_derpp": {
+    "average_forgetting": 0.08333333333333333,
+    "current_task_accuracy": 0.32421875,
+    "final_average_accuracy": 0.26171875,
+    "record_capacity": 54,
+    "sign_fiber_bytes": 6080,
+    "wall_seconds": 349.74435725499995
+  },
+  "hardware_scope": "GitHub-hosted CPU only",
+  "note": "Pilot result is development evidence only. Any confirmatory multi-seed gate must be frozen in a later source commit before its evaluation seeds are executed.",
+  "paired_delta": {
+    "current_task_pp": -5.859375,
+    "final_accuracy_pp": 2.34375,
+    "forgetting_pp": -10.937500000000002
+  },
+  "raw_sha256": {
+    "derpp": "b6657ed0ed266b2f93b91d418c094a60ea7712877480766ad394feb9c2d60bf6",
+    "dfc_sign_derpp": "e4867af924c36b6958221bbd92d2403f6741041b3db5ccb77eff04db34a90227"
+  },
+  "resource_identity": "PASS",
+  "schema": "dfc-qwen-taskperm-development-pilot-v1",
+  "seed": 1501,
+  "source_sha": "81d25ce8f349c276bc06ef6ad433ebc38a74d388",
+  "status": "COMPLETE"
+}
