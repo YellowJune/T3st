@@ -1,0 +1,47 @@
+{
+  "cells": [
+    {
+      "cell": "linux-arm64",
+      "coordinate_updates": 860880,
+      "platform": "Linux-6.17.0-1022-azure-aarch64-with-glibc2.39",
+      "python": "3.12.14 (main, Aug 13 2026, 02:48:06) [GCC 13.3.0]",
+      "sha256": "3746d109f57fd987f326c182fb6d5455a5c192a5eb1a9bc77c2fe4c0b4b8cb87",
+      "torch": "2.13.0+cpu"
+    },
+    {
+      "cell": "linux-x64",
+      "coordinate_updates": 860880,
+      "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+      "python": "3.12.14 (main, Aug 13 2026, 02:47:42) [GCC 13.3.0]",
+      "sha256": "864d1b92d3965edc9017b275cfbb5af99494546175565e023412f20cf4105285",
+      "torch": "2.13.0+cpu"
+    },
+    {
+      "cell": "macos-arm64",
+      "coordinate_updates": 860880,
+      "platform": "macOS-14.8.7-arm64-arm-64bit",
+      "python": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+      "sha256": "5b7d3ef1e1905c2d48b4b758cec1fc1fca6179ad4c9faaa83f224ef896867ea5",
+      "torch": "2.13.0"
+    },
+    {
+      "cell": "windows-x64",
+      "coordinate_updates": 860880,
+      "platform": "Windows-2025Server-10.0.26100-SP0",
+      "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+      "sha256": "41f9f757291112acfee568a7da6c5ac567ed8d2f0fc00dbe48fd64669fc2a8e9",
+      "torch": "2.13.0+cpu"
+    }
+  ],
+  "claim": "Exact DFC CPU semantics and checkpoint gates pass across Linux x64, Linux ARM64, Windows x64, and macOS ARM64 GitHub-hosted runners.",
+  "excluded": [
+    "GPU performance",
+    "Nsight counters",
+    "accelerator architecture claims"
+  ],
+  "github_run_id": "32313835817",
+  "schema": "dfc-cpu-portability-v1",
+  "source_sha": "b73896816a762b3e8286ca7fc8ca2139045eeb3a",
+  "status": "PASS",
+  "total_reported_coordinate_updates": 3443520
+}
