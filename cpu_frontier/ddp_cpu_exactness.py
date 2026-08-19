@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Two-rank CPU/Gloo DDP exactness gate for DFC-SIGN.
+"""Multi-rank CPU/Gloo DDP exactness gate for DFC-SIGN.
 
-Each rank carries a different hidden payload while DDP exposes the same semantic
-optimizer trajectory. No CUDA device is required or used.
+Every rank carries a distinct hidden payload while DDP exposes one identical
+semantic parameter trajectory.  This is deliberately accelerator-free and is
+used on ordinary GitHub-hosted CPU runners.
 """
 
 from __future__ import annotations
@@ -34,13 +35,16 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--steps", type=int, default=12)
+    parser.add_argument("--min-world-size", type=int, default=2)
     args = parser.parse_args()
 
     dist.init_process_group("gloo")
     rank = dist.get_rank()
     world = dist.get_world_size()
-    if world != 2:
-        raise RuntimeError(f"expected two ranks, got {world}")
+    if world < args.min_world_size:
+        raise RuntimeError(f"expected at least {args.min_world_size} ranks, got {world}")
+    if torch.cuda.is_available():
+        raise RuntimeError("CPU/Gloo gate unexpectedly sees CUDA")
 
     torch.manual_seed(8100)
     reference = nn.Sequential(nn.Linear(64, 96), nn.GELU(), nn.Linear(96, 32))
@@ -59,7 +63,9 @@ def main():
     gen = torch.Generator().manual_seed(8300 + rank)
 
     loss_fn = nn.MSELoss()
-    for _ in range(args.steps):
+    for step in range(args.steps):
+        # Rank-local data differ, so DDP must reconcile gradients. Reference and
+        # DFC executions on a given rank receive identical local data.
         x = torch.randn(23, 64, generator=gen)
         y = torch.randn(23, 32, generator=gen)
         for model, optimizer in ((reference, ref_opt), (lifted, dfc_opt)):
@@ -69,10 +75,9 @@ def main():
 
         for a, b in zip(reference.parameters(), lifted.parameters()):
             if not torch.equal(a, b):
-                raise AssertionError(f"rank {rank}: DFC changed DDP parameter trajectory")
-
-    if channel.read_bytes(0, len(payload)) != payload:
-        raise AssertionError(f"rank {rank}: hidden payload changed")
+                raise AssertionError(f"rank {rank} step {step}: DFC changed DDP parameter trajectory")
+        if channel.read_bytes(0, len(payload)) != payload:
+            raise AssertionError(f"rank {rank} step {step}: hidden payload changed")
 
     local_digest = tensor_digest(lifted.parameters())
     digests = [None for _ in range(world)]
@@ -88,7 +93,7 @@ def main():
     if rank == 0:
         coordinates = sum(p.numel() for p in lifted.parameters())
         report = {
-            "schema": "dfc-github-cpu-ddp-v1",
+            "schema": "dfc-github-cpu-ddp-v2",
             "status": "PASS",
             "backend": "gloo",
             "world_size": world,
@@ -99,7 +104,7 @@ def main():
             "rank_payload_sha256": payload_digests,
             "payloads_distinct": True,
             "cuda_available": torch.cuda.is_available(),
-            "claim": "rank-distinct DFC-SIGN payloads preserve the bit-identical DDP semantic parameter trajectory",
+            "claim": "rank-distinct DFC-SIGN payloads preserve a bit-identical multi-rank DDP semantic parameter trajectory",
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
