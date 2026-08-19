@@ -1,0 +1,155 @@
+name: DFC GitHub CPU frontier validation
+
+on:
+  push:
+    branches:
+      - dfc-v3.2-github-cpu-frontier
+    paths:
+      - "cpu_frontier/**"
+      - ".github/workflows/dfc-github-cpu-frontier.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  frontier:
+    name: frontier-py${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install CPU-only dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Confirm CPU-only execution boundary
+        run: |
+          python - <<'PY'
+          import torch
+          print("torch", torch.__version__)
+          print("cuda_available", torch.cuda.is_available())
+          if torch.cuda.is_available():
+              raise SystemExit("This workflow is intentionally CPU-only")
+          PY
+      - name: Run DFC CPU frontier suite
+        env:
+          OMP_NUM_THREADS: "4"
+          MKL_NUM_THREADS: "4"
+        run: >-
+          python cpu_frontier/frontier_suite.py
+          --output results/cpu_frontier/frontier_py${{ matrix.python }}.json
+          --sign-coordinates 262144
+          --sign-steps 64
+          --low-coordinates 131072
+          --low-steps 32
+      - name: Hash raw evidence
+        run: sha256sum results/cpu_frontier/*.json > results/cpu_frontier/SHA256SUMS_py${{ matrix.python }}.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-cpu-frontier-py${{ matrix.python }}
+          path: results/cpu_frontier/
+          if-no-files-found: error
+
+  ddp:
+    name: two-rank-gloo-ddp
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU-only dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run two-rank CPU DDP exactness gate
+        env:
+          OMP_NUM_THREADS: "2"
+          MKL_NUM_THREADS: "2"
+        run: >-
+          torchrun --standalone --nproc-per-node=2
+          cpu_frontier/ddp_cpu_exactness.py
+          --output results/cpu_frontier/ddp_gloo_2rank.json
+          --steps 12
+      - name: Hash DDP evidence
+        run: sha256sum results/cpu_frontier/*.json > results/cpu_frontier/SHA256SUMS_ddp.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-cpu-frontier-ddp
+          path: results/cpu_frontier/
+          if-no-files-found: error
+
+  aggregate:
+    name: aggregate-and-freeze
+    needs: [frontier, ddp]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dfc-cpu-frontier-*
+          path: results/cpu_frontier
+          merge-multiple: true
+      - name: Verify and aggregate all publication gates
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, pathlib
+          root = pathlib.Path("results/cpu_frontier")
+          files = sorted(root.glob("*.json"))
+          if len(files) != 3:
+              raise SystemExit(f"expected 3 raw JSON files, found {len(files)}: {files}")
+          rows = []
+          for path in files:
+              obj = json.loads(path.read_text())
+              if obj.get("status") != "PASS":
+                  raise SystemExit(f"publication gate failed: {path}: {obj.get('status')}")
+              rows.append({
+                  "file": path.name,
+                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                  "schema": obj.get("schema"),
+                  "status": obj.get("status"),
+                  "coordinate_updates": obj.get("coordinate_updates", obj.get("total_stress_coordinate_updates", 0)),
+              })
+          report = {
+              "schema": "dfc-github-cpu-frontier-aggregate-v1",
+              "status": "PASS",
+              "github_run_id": os.environ["GITHUB_RUN_ID"],
+              "github_run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "source_sha": os.environ["GITHUB_SHA"],
+              "hardware_scope": "GitHub-hosted CPU only; no CUDA/H100/H200/B200/B300 claims",
+              "raw_evidence": rows,
+              "total_reported_coordinate_updates": sum(int(r["coordinate_updates"]) for r in rows),
+          }
+          out = root / "aggregate.json"
+          out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+          print(out.read_text())
+          PY
+      - name: Freeze SHA-256 manifest
+        run: |
+          cd results/cpu_frontier
+          sha256sum *.json > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-cpu-frontier-complete
+          path: results/cpu_frontier/
+          if-no-files-found: error
+      - name: Persist immutable evidence on isolated result branch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          branch="result-${GITHUB_RUN_ID}-attempt${GITHUB_RUN_ATTEMPT}-cpu-frontier"
+          git checkout -b "$branch"
+          git add -f results/cpu_frontier/
+          git commit -m "DFC CPU frontier evidence ${GITHUB_RUN_ID} attempt ${GITHUB_RUN_ATTEMPT}"
+          git push origin HEAD
