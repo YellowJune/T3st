@@ -1,0 +1,138 @@
+name: DFC CPU portability matrix
+
+on:
+  push:
+    branches:
+      - dfc-v3.2-github-cpu-frontier
+    paths:
+      - "cpu_frontier/**"
+      - ".github/workflows/dfc-cpu-portability.yml"
+  pull_request:
+    branches:
+      - dfc-v2.1-validation
+    paths:
+      - "cpu_frontier/**"
+      - ".github/workflows/dfc-cpu-portability.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  portability:
+    name: ${{ matrix.id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: linux-x64
+            runner: ubuntu-24.04
+            cpu_index: true
+          - id: linux-arm64
+            runner: ubuntu-24.04-arm
+            cpu_index: true
+          - id: windows-x64
+            runner: windows-2025
+            cpu_index: true
+          - id: macos-arm64
+            runner: macos-14
+            cpu_index: false
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install NumPy
+        run: python -m pip install --upgrade pip numpy
+      - name: Install CPU PyTorch (Linux/Windows)
+        if: matrix.cpu_index
+        run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Install PyTorch (macOS ARM)
+        if: ${{ !matrix.cpu_index }}
+        run: python -m pip install torch
+      - name: Record runner architecture
+        run: python -c "import platform,sys,torch; print('platform=',platform.platform()); print('machine=',platform.machine()); print('byteorder=',sys.byteorder); print('torch=',torch.__version__); print('cuda=',torch.cuda.is_available())"
+      - name: Enforce CPU-only boundary
+        run: python -c "import torch; assert not torch.cuda.is_available(), 'portability gate must remain CPU-only'"
+      - name: Run exact DFC portability gates
+        run: python cpu_frontier/frontier_suite.py --output results/portability/${{ matrix.id }}.json --sign-coordinates 32768 --sign-steps 16 --low-coordinates 16384 --low-steps 8
+      - name: Hash evidence portably
+        run: python -c "from pathlib import Path; import hashlib; p=Path(r'results/portability/${{ matrix.id }}.json'); Path(r'results/portability/${{ matrix.id }}.sha256').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-portability-${{ matrix.id }}
+          path: results/portability/
+          if-no-files-found: error
+
+  aggregate:
+    name: seal-portability
+    needs: portability
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dfc-portability-*
+          path: results/portability
+          merge-multiple: true
+      - name: Verify all OS/architecture cells
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, pathlib
+          root = pathlib.Path('results/portability')
+          expected = {'linux-x64.json','linux-arm64.json','windows-x64.json','macos-arm64.json'}
+          found = {p.name for p in root.glob('*.json')}
+          if found != expected:
+              raise SystemExit(f'portability evidence mismatch: expected={expected}, found={found}')
+          rows = []
+          for path in sorted(root.glob('*.json')):
+              obj = json.loads(path.read_text())
+              if obj.get('status') != 'PASS':
+                  raise SystemExit(f'{path} failed: {obj.get("status")}')
+              if obj.get('environment', {}).get('cuda_available'):
+                  raise SystemExit(f'{path} unexpectedly used CUDA')
+              rows.append({
+                  'cell': path.stem,
+                  'platform': obj['environment']['platform'],
+                  'python': obj['environment']['python'],
+                  'torch': obj['environment']['torch'],
+                  'coordinate_updates': int(obj.get('total_stress_coordinate_updates',0)),
+                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+              })
+          report = {
+              'schema':'dfc-cpu-portability-v1',
+              'status':'PASS',
+              'github_run_id':os.environ['GITHUB_RUN_ID'],
+              'source_sha':os.environ['GITHUB_SHA'],
+              'cells':rows,
+              'total_reported_coordinate_updates':sum(r['coordinate_updates'] for r in rows),
+              'claim':'Exact DFC CPU semantics and checkpoint gates pass across Linux x64, Linux ARM64, Windows x64, and macOS ARM64 GitHub-hosted runners.',
+              'excluded':['GPU performance','Nsight counters','accelerator architecture claims'],
+          }
+          out=root/'aggregate_portability.json'
+          out.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          print(out.read_text())
+          PY
+      - name: Freeze manifest
+        shell: bash
+        run: |
+          cd results/portability
+          sha256sum *.json > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-portability-complete
+          path: results/portability/
+          if-no-files-found: error
+      - name: Persist immutable portability evidence
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          branch="result-${GITHUB_RUN_ID}-cpu-portability"
+          git checkout -b "$branch"
+          git add -f results/portability/
+          git commit -m "Record DFC CPU portability evidence ${GITHUB_RUN_ID}"
+          git push origin HEAD

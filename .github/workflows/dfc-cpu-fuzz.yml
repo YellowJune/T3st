@@ -1,0 +1,122 @@
+name: DFC CPU randomized fuzz validation
+
+on:
+  push:
+    branches:
+      - dfc-v3.2-github-cpu-frontier
+    paths:
+      - "cpu_frontier/fuzz_suite.py"
+      - ".github/workflows/dfc-cpu-fuzz.yml"
+  pull_request:
+    branches:
+      - dfc-v2.1-validation
+    paths:
+      - "cpu_frontier/fuzz_suite.py"
+      - ".github/workflows/dfc-cpu-fuzz.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fuzz:
+    name: fuzz-seed-${{ matrix.seed }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [20260820, 20260821, 20260822, 20260823]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Enforce CPU-only execution
+        run: python -c "import torch; assert not torch.cuda.is_available()"
+      - name: Execute randomized property suite
+        run: python cpu_frontier/fuzz_suite.py --trials 120 --seed ${{ matrix.seed }} --output results/fuzz/fuzz_${{ matrix.seed }}.json
+      - name: Hash raw evidence
+        run: sha256sum results/fuzz/fuzz_${{ matrix.seed }}.json > results/fuzz/fuzz_${{ matrix.seed }}.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-fuzz-${{ matrix.seed }}
+          path: results/fuzz/
+          if-no-files-found: error
+
+  aggregate:
+    name: seal-fuzz
+    needs: fuzz
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dfc-fuzz-*
+          path: results/fuzz
+          merge-multiple: true
+      - name: Aggregate publication gates
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, pathlib
+          root=pathlib.Path('results/fuzz')
+          files=sorted(root.glob('fuzz_*.json'))
+          if len(files)!=4:
+              raise SystemExit(f'expected four fuzz files, got {files}')
+          rows=[]
+          for path in files:
+              obj=json.loads(path.read_text())
+              assert obj['status']=='PASS'
+              assert obj['trials']==120
+              assert obj['sign_trials']==60 and obj['low16_trials']==60
+              assert set(obj['coverage']['dtypes'])=={'bfloat16','float16','float32'}
+              assert obj['environment']['cuda_available'] is False
+              rows.append({
+                  'file':path.name,
+                  'seed':obj['seed'],
+                  'trials':obj['trials'],
+                  'active_coordinate_updates':obj['active_coordinate_updates'],
+                  'configuration_digest_sha256':obj['configuration_digest_sha256'],
+                  'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+              })
+          report={
+              'schema':'dfc-cpu-randomized-fuzz-aggregate-v1',
+              'status':'PASS',
+              'github_run_id':os.environ['GITHUB_RUN_ID'],
+              'source_sha':os.environ['GITHUB_SHA'],
+              'total_trials':sum(r['trials'] for r in rows),
+              'sign_trials':240,
+              'low16_trials':240,
+              'active_coordinate_updates':sum(r['active_coordinate_updates'] for r in rows),
+              'runs':rows,
+              'claim':'480 independently configured randomized CPU trials preserve the decoder-defined reference trajectory and payload exactly.',
+              'excluded':['GPU performance','accelerator counters','H100-class behavior'],
+          }
+          out=root/'aggregate_fuzz.json'
+          out.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          print(out.read_text())
+          PY
+      - name: Freeze manifest
+        run: |
+          cd results/fuzz
+          sha256sum *.json > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-fuzz-complete
+          path: results/fuzz/
+          if-no-files-found: error
+      - name: Persist immutable fuzz evidence
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          branch="result-${GITHUB_RUN_ID}-cpu-fuzz"
+          git checkout -b "$branch"
+          git add -f results/fuzz/
+          git commit -m "Record DFC CPU randomized fuzz evidence ${GITHUB_RUN_ID}"
+          git push origin HEAD
