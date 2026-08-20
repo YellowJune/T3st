@@ -4,6 +4,9 @@ on:
   push:
     branches: [dfc-v3.2-github-cpu-frontier]
     paths: ['.github/workflows/dfc-v32-source-bundle.yml']
+  pull_request:
+    branches: [dfc-v2.1-validation]
+    paths: ['.github/workflows/dfc-v32-source-bundle.yml']
   workflow_dispatch:
 
 permissions:
