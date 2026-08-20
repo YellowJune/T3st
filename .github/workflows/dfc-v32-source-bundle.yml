@@ -1,0 +1,62 @@
+name: DFC v3.2 source bundle
+
+on:
+  push:
+    branches: [dfc-v3.2-github-cpu-frontier]
+    paths: ['.github/workflows/dfc-v32-source-bundle.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Build self-contained source bundle
+        run: |
+          set -euo pipefail
+          root=source_bundle_v3.2
+          mkdir -p "$root/.github/workflows" "$root/remote" "$root/cpu_frontier" "$root/docs"
+          cp -a cpu_frontier/. "$root/cpu_frontier/"
+          cp remote/torch_fiber.py "$root/remote/"
+          cp remote/llm_continual_qwen_agnews_taskperm.py "$root/remote/"
+          for f in \
+            .github/workflows/dfc-github-cpu-frontier.yml \
+            .github/workflows/dfc-cpu-fuzz.yml \
+            .github/workflows/dfc-cpu-portability.yml \
+            .github/workflows/dfc-mixed-checkpoint.yml \
+            .github/workflows/dfc-v32-taskperm-pilot.yml \
+            .github/workflows/dfc-v32-taskperm-sealed.yml \
+            .github/workflows/dfc-v32-source-bundle.yml; do
+            [ -f "$f" ] && cp "$f" "$root/.github/workflows/"
+          done
+          [ -f docs/CPU_FRONTIER_VALIDATION.md ] && cp docs/CPU_FRONTIER_VALIDATION.md "$root/docs/" || true
+          git rev-parse HEAD > "$root/GIT_HEAD.txt"
+          git status --porcelain=v1 > "$root/GIT_STATUS.txt"
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          root=Path('source_bundle_v3.2')
+          rows=[]
+          for p in sorted(x for x in root.rglob('*') if x.is_file()):
+              rows.append({'path':str(p.relative_to(root)),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()})
+          (root/'MANIFEST.json').write_text(json.dumps({'schema':'dfc-v3.2-source-bundle-v1','files':rows},indent=2,sort_keys=True)+'\n')
+          with (root/'SHA256SUMS.txt').open('w') as f:
+              for r in rows:
+                  f.write(f"{r['sha256']}  {r['path']}\n")
+          PY
+          tar -czf source_bundle_v3.2.tar.gz "$root"
+          sha256sum source_bundle_v3.2.tar.gz > source_bundle_v3.2.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfc-v32-source-bundle-${{ github.run_id }}
+          path: |
+            source_bundle_v3.2/
+            source_bundle_v3.2.tar.gz
+            source_bundle_v3.2.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 90
