@@ -1,0 +1,120 @@
+name: DFC SIGN NMI Kaggle GPU gate
+
+on:
+  push:
+    branches: [dfc-nmi-sign-gpu-20260909]
+    paths:
+      - 'kaggle/dfc_sign_triton_nmi/**'
+      - '.github/workflows/kaggle-dfc-sign-nmi.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kaggle-gpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      KAGGLE_CONFIG_DIR: /tmp/kaggle-auth
+      KAGGLE_CONFIG_B64: ${{ secrets.KAGGLE_CONFIG_B64 }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      KERNEL_ID: yellwojune083/dfc-sign-triton-nmi-20260909
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Kaggle credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$KAGGLE_API_TOKEN" ]; then
+            echo "KAGGLE_AUTH_MODE=token" >> "$GITHUB_ENV"
+          elif [ -n "$KAGGLE_CONFIG_B64" ]; then
+            umask 077
+            mkdir -p "$KAGGLE_CONFIG_DIR"
+            printf '%s' "$KAGGLE_CONFIG_B64" | base64 --decode > "$KAGGLE_CONFIG_DIR/kaggle.json"
+            python - <<'PY'
+          import json, os
+          p=os.path.join(os.environ['KAGGLE_CONFIG_DIR'],'kaggle.json')
+          d=json.load(open(p))
+          assert d.get('username') and len(d.get('key','')) >= 20
+          print('Kaggle credential structure validated')
+          PY
+            echo "KAGGLE_AUTH_MODE=legacy" >> "$GITHUB_ENV"
+          elif [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then
+            echo "KAGGLE_AUTH_MODE=legacy_env" >> "$GITHUB_ENV"
+          else
+            echo "No supported Kaggle credential is configured" >&2
+            exit 42
+          fi
+      - name: Push private GPU kernel
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$KAGGLE_AUTH_MODE" = token ]; then
+            python -m pip install --quiet 'kaggle>=2,<3'
+            kaggle kernels list --mine --page-size 1 >/dev/null
+            kaggle kernels push -p kaggle/dfc_sign_triton_nmi --accelerator NvidiaTeslaT4Highmem --timeout 39600 \
+              || kaggle kernels push -p kaggle/dfc_sign_triton_nmi --accelerator NvidiaTeslaT4 --timeout 39600
+          else
+            python -m pip install --quiet 'kaggle==1.8.4'
+            kaggle kernels list --mine --page-size 1 >/dev/null
+            kaggle kernels push -p kaggle/dfc_sign_triton_nmi --acc NvidiaTeslaT4Highmem --timeout 39600 \
+              || kaggle kernels push -p kaggle/dfc_sign_triton_nmi --acc NvidiaTeslaT4 --timeout 39600
+          fi
+      - name: Poll until terminal state
+        shell: bash
+        run: |
+          set -euo pipefail
+          terminal=0
+          for i in $(seq 1 100); do
+            status="$(kaggle kernels status "$KERNEL_ID" 2>&1 | tee /tmp/kaggle-status.txt)"
+            echo "poll=$i $status"
+            if echo "$status" | grep -Eqi 'complete|error|failed|cancel'; then
+              terminal=1
+              break
+            fi
+            sleep 20
+          done
+          if [ "$terminal" -ne 1 ]; then
+            echo 'Kaggle kernel did not reach a terminal state within polling window' >&2
+            exit 124
+          fi
+      - name: Download immutable outputs
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p kaggle_out
+          kaggle kernels output "$KERNEL_ID" -p kaggle_out -q
+          rc=$?
+          find kaggle_out -maxdepth 2 -type f -print || true
+          if [ -f kaggle_out/dfc_sign_triton_gpu.json ]; then
+            python - <<'PY'
+          import json
+          p='kaggle_out/dfc_sign_triton_gpu.json'
+          d=json.load(open(p))
+          print(json.dumps({
+            'gpu_name': d.get('gpu_name'),
+            'median_overhead_percent': d.get('median_overhead_percent'),
+            'max_size_median_overhead_percent': d.get('max_size_median_overhead_percent'),
+            'overhead_gate_passed': d.get('overhead_gate_passed'),
+            'all_bitwise_exact': all(r.get('bitwise_exact') for r in d.get('rows', [])),
+            'result_sha256': d.get('result_sha256')
+          }, indent=2))
+          PY
+          fi
+          exit $rc
+      - name: Upload GPU evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dfc-sign-nmi-kaggle-gpu
+          path: |
+            kaggle_out/**
+            /tmp/kaggle-status.txt
+          if-no-files-found: warn
