@@ -1,0 +1,16 @@
+{
+  "id": "yellwojune083/dfc-sign-triton-nmi-20260909",
+  "title": "DFC SIGN Triton NMI GPU Gate 20260909",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "keywords": [],
+  "dataset_sources": [],
+  "kernel_sources": [],
+  "competition_sources": [],
+  "model_sources": []
+}
